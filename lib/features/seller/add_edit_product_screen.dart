@@ -1,0 +1,539 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../repositories/product_repository.dart';
+import '../../models/product_model.dart';
+import '../../core/storage/product_storage_service.dart';
+import '../../repositories/user_repository.dart';
+
+class AddEditProductScreen extends StatefulWidget {
+  final String shopId;
+  final ProductModel? product;
+
+  const AddEditProductScreen({
+    super.key,
+    required this.shopId,
+    this.product,
+  });
+
+  @override
+  State<AddEditProductScreen> createState() =>
+      _AddEditProductScreenState();
+}
+
+class _AddEditProductScreenState
+    extends State<AddEditProductScreen> {
+  final _nameController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _quantityController = TextEditingController();
+  final _categoryController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  final ProductRepository _productRepository =
+      ProductRepository();
+  final ProductStorageService _storageService =
+      ProductStorageService();
+  final ImagePicker _picker = ImagePicker();
+
+  bool _loading = false;
+
+  // -------------------------------
+  // DELIVERY OVERRIDE STATE
+  // -------------------------------
+  bool _overrideDelivery = false;
+  String _deliveryUnit = 'hours'; // minutes | hours | days
+  final TextEditingController _deliveryMinController =
+      TextEditingController();
+  final TextEditingController _deliveryMaxController =
+      TextEditingController();
+
+  int _toMinutes(int value, String unit) {
+    switch (unit) {
+      case 'minutes':
+        return value;
+      case 'hours':
+        return value * 60;
+      case 'days':
+        return value * 1440;
+      default:
+        return value;
+    }
+  }
+
+  // -------------------------------
+  // CATEGORY LIST (NEW)
+  // -------------------------------
+  final List<String> _categories = [
+    'Groceries',
+    'Bakery',
+    'Snacks',
+    'Personal Care',
+    'Household',
+    'Stationary',
+    'Clothing',
+    'Food',
+    'Art & Decor',
+    'Other',
+  ];
+
+  String? _selectedCategory;
+
+  // -------------------------------
+  // IMAGE STATE
+  // -------------------------------
+  static const int _maxImages = 4;
+  List<XFile> _selectedImages = [];
+  List<String> _uploadedImageUrls = [];
+  List<String> _existingImages = [];
+
+  int _coverIndex = 0;
+  double _uploadProgress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.product != null) {
+      _nameController.text = widget.product!.name;
+      _priceController.text =
+          widget.product!.price.toString();
+      _quantityController.text =
+          widget.product!.quantity.toString();
+      _categoryController.text =
+          widget.product!.category;
+      _descriptionController.text =
+          widget.product!.description;
+
+      _selectedCategory = widget.product!.category;
+
+      _existingImages = List.from(widget.product!.images);
+
+      _coverIndex = widget.product!.images
+          .indexOf(widget.product!.coverImage);
+
+      if (_coverIndex < 0) _coverIndex = 0;
+
+      // 🆕 LOAD DELIVERY OVERRIDE IF EXISTS
+      if (widget.product!.deliveryMinMinutes != null) {
+        _overrideDelivery = true;
+        _deliveryUnit =
+            widget.product!.deliveryUnit ?? 'hours';
+        _deliveryMinController.text =
+            widget.product!.deliveryMinValue?.toString() ?? '';
+        _deliveryMaxController.text =
+            widget.product!.deliveryMaxValue?.toString() ?? '';
+      }
+    }
+  }
+
+  // -------------------------------
+  // PICK IMAGES (MAX 4)
+  // -------------------------------
+  Future<void> _pickImages() async {
+    final images = await _picker.pickMultiImage();
+
+    if (images.isEmpty) return;
+
+    if (images.length > _maxImages) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You can upload maximum 4 images'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _selectedImages = images;
+      _coverIndex = 0;
+    });
+  }
+
+  // -------------------------------
+  // REMOVE IMAGE
+  // -------------------------------
+  void _removeImage(int index) {
+    setState(() {
+      if (_selectedImages.isNotEmpty) {
+        _selectedImages.removeAt(index);
+      } else {
+        _existingImages.removeAt(index);
+      }
+
+      if (_coverIndex >=
+          (_selectedImages.isNotEmpty
+              ? _selectedImages.length
+              : _existingImages.length)) {
+        _coverIndex = 0;
+      }
+    });
+  }
+
+  // -------------------------------
+  // UPLOAD IMAGES
+  // -------------------------------
+  Future<void> _uploadImages(String productId) async {
+    _uploadedImageUrls.clear();
+    _uploadProgress = 0;
+
+    for (int i = 0; i < _selectedImages.length; i++) {
+      final file = File(_selectedImages[i].path);
+
+      final task =
+          _storageService.uploadProductImageWithProgress(
+        file: file,
+        shopId: widget.shopId,
+        productId: productId,
+        index: i,
+      );
+
+      task.snapshotEvents.listen((event) {
+        if (event.totalBytes > 0) {
+          setState(() {
+            _uploadProgress =
+                event.bytesTransferred /
+                event.totalBytes;
+          });
+        }
+      });
+
+      final snapshot = await task;
+      final url = await snapshot.ref.getDownloadURL();
+      _uploadedImageUrls.add(url);
+    }
+  }
+
+  // -------------------------------
+  // SAVE PRODUCT
+  // -------------------------------
+  Future<void> _saveProduct() async {
+    if (_nameController.text.isEmpty ||
+        _priceController.text.isEmpty ||
+        _selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all required fields'),
+        ),
+      );
+      return;
+    }
+
+    int? minVal;
+    int? maxVal;
+
+    if (_overrideDelivery) {
+      minVal = int.tryParse(_deliveryMinController.text);
+      maxVal = int.tryParse(_deliveryMaxController.text);
+
+      if (minVal == null ||
+          maxVal == null ||
+          minVal <= 0 ||
+          maxVal < minVal) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Invalid delivery time')),
+        );
+        return;
+      }
+    }
+
+    setState(() => _loading = true);
+
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final user = await UserRepository().getUser(uid);
+
+    if (user.societyId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Society not found for user'),
+        ),
+      );
+      setState(() => _loading = false);
+      return;
+    }
+
+    final productId = widget.product?.id ??
+        DateTime.now().millisecondsSinceEpoch.toString();
+
+    if (_selectedImages.isNotEmpty) {
+      await _uploadImages(productId);
+    }
+
+    final List<String> imagesToSave =
+        _uploadedImageUrls.isNotEmpty
+            ? _uploadedImageUrls
+            : _existingImages;
+
+    final coverImage =
+        imagesToSave.isNotEmpty
+            ? imagesToSave[_coverIndex]
+            : '';
+
+    _categoryController.text = _selectedCategory!;
+
+    if (widget.product == null) {
+      await _productRepository.createProduct(
+        shopId: widget.shopId,
+        sellerId: uid,
+        societyId: user.societyId,
+        name: _nameController.text.trim(),
+        price: double.parse(_priceController.text),
+        quantity:
+            int.tryParse(_quantityController.text) ?? 0,
+        category: _categoryController.text.trim(),
+        description:
+            _descriptionController.text.trim(),
+        images: imagesToSave,
+        coverImage: coverImage,
+        deliveryUnit: _overrideDelivery ? _deliveryUnit : null,
+        deliveryMinValue: minVal,
+        deliveryMaxValue: maxVal,
+        deliveryMinMinutes: _overrideDelivery
+            ? _toMinutes(minVal!, _deliveryUnit)
+            : null,
+        deliveryMaxMinutes: _overrideDelivery
+            ? _toMinutes(maxVal!, _deliveryUnit)
+            : null,
+      );
+    } else {
+      final updated = widget.product!.copyWith(
+        name: _nameController.text.trim(),
+        price: double.parse(_priceController.text),
+        quantity:
+            int.tryParse(_quantityController.text) ?? 0,
+        category: _categoryController.text.trim(),
+        description:
+            _descriptionController.text.trim(),
+        images: imagesToSave,
+        coverImage: coverImage,
+        deliveryUnit: _overrideDelivery ? _deliveryUnit : null,
+        deliveryMinValue: minVal,
+        deliveryMaxValue: maxVal,
+        deliveryMinMinutes: _overrideDelivery
+            ? _toMinutes(minVal!, _deliveryUnit)
+            : null,
+        deliveryMaxMinutes: _overrideDelivery
+            ? _toMinutes(maxVal!, _deliveryUnit)
+            : null,
+      );
+
+      await _productRepository.updateProduct(updated);
+    }
+
+    Navigator.pop(context, true);
+  }
+
+  // -------------------------------
+  // UI
+  // -------------------------------
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = widget.product != null;
+
+    final imagesToShow =
+        _selectedImages.isNotEmpty
+            ? _selectedImages.map((e) => e.path).toList()
+            : _existingImages;
+
+    final isLocal = _selectedImages.isNotEmpty;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEdit ? 'Edit Product' : 'Add Product'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration:
+                  const InputDecoration(
+                      labelText: 'Product Name'),
+            ),
+
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              decoration:
+                  const InputDecoration(labelText: 'Category'),
+              items: _categories
+                  .map(
+                    (c) => DropdownMenuItem(
+                      value: c,
+                      child: Text(c),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedCategory = value;
+                });
+              },
+            ),
+
+            TextField(
+              controller: _priceController,
+              decoration:
+                  const InputDecoration(labelText: 'Price'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _quantityController,
+              decoration: const InputDecoration(
+                  labelText: 'Available Quantity'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _descriptionController,
+              maxLines: 3,
+              decoration:
+                  const InputDecoration(
+                      labelText: 'Description'),
+            ),
+
+            const SizedBox(height: 24),
+
+            SwitchListTile(
+              title: const Text('Override Delivery Time'),
+              value: _overrideDelivery,
+              onChanged: (val) {
+                setState(() => _overrideDelivery = val);
+              },
+            ),
+
+            if (_overrideDelivery) ...[
+              DropdownButtonFormField<String>(
+                value: _deliveryUnit,
+                decoration:
+                    const InputDecoration(labelText: 'Delivery Unit'),
+                items: const [
+                  DropdownMenuItem(
+                      value: 'minutes', child: Text('Minutes')),
+                  DropdownMenuItem(
+                      value: 'hours', child: Text('Hours')),
+                  DropdownMenuItem(
+                      value: 'days', child: Text('Days')),
+                ],
+                onChanged: (val) {
+                  if (val == null) return;
+                  setState(() => _deliveryUnit = val);
+                },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _deliveryMinController,
+                      keyboardType: TextInputType.number,
+                      decoration:
+                          const InputDecoration(labelText: 'Minimum'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _deliveryMaxController,
+                      keyboardType: TextInputType.number,
+                      decoration:
+                          const InputDecoration(labelText: 'Maximum'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            if (imagesToShow.isNotEmpty)
+              GridView.builder(
+                shrinkWrap: true,
+                physics:
+                    const NeverScrollableScrollPhysics(),
+                itemCount: imagesToShow.length,
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemBuilder: (_, index) {
+                  return GestureDetector(
+                    onTap: () =>
+                        setState(() => _coverIndex = index),
+                    child: Stack(
+                      children: [
+                        isLocal
+                            ? Image.file(
+                                File(imagesToShow[index]),
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                              )
+                            : Image.network(
+                                imagesToShow[index],
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                              ),
+                        if (_coverIndex == index)
+                          const Positioned(
+                            top: 6,
+                            left: 6,
+                            child: Icon(Icons.star,
+                                color: Colors.orange),
+                          ),
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: GestureDetector(
+                            onTap: () =>
+                                _removeImage(index),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+            if (_uploadProgress > 0 &&
+                _uploadProgress < 1)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: [
+                    LinearProgressIndicator(
+                        value: _uploadProgress),
+                    const SizedBox(height: 4),
+                    Text(
+                        'Uploading ${(100 * _uploadProgress).toInt()}%'),
+                  ],
+                ),
+              ),
+
+            ElevatedButton.icon(
+              icon: const Icon(Icons.collections),
+              label: const Text('Select Product Images'),
+              onPressed: _pickImages,
+            ),
+
+            const SizedBox(height: 24),
+
+            _loading
+                ? const CircularProgressIndicator()
+                : ElevatedButton(
+                    onPressed: _saveProduct,
+                    child: const Text('Save'),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+}

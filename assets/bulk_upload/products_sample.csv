@@ -1,0 +1,4 @@
+name,price,quantity,category,description,isActive,imagePrefix
+Milk,45,20,Dairy,Fresh milk,true,milk
+Bread,30,15,Bakery,Whole wheat bread,true,bread
+Apple,120,10,Fruits,Shimla apples,true,apple
