@@ -84,7 +84,7 @@ flutter_icons:
 flutter:
   assets:
     - assets/bulk_upload/products_sample.csv
-    - assets/bulk_upload/images_sample.zip
+    #- assets/bulk_upload/images_sample.zip
     - assets/images/categories/
 
   # The following line ensures that the Material Icons font is
