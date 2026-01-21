@@ -1,0 +1,62 @@
+{
+  "project_info": {
+    "project_number": "366660097336",
+    "project_id": "mqcart-prod",
+    "storage_bucket": "mqcart-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:366660097336:android:3a4bc9bd38bd09c9841dcd",
+        "android_client_info": {
+          "package_name": "com.mqcart.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "366660097336-2660q9gjg5tm9ls0t0md39isuak6hpk1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mqcart.app",
+            "certificate_hash": "bc61b9f758e8f4af4cde5500a6bba497321dd629"
+          }
+        },
+        {
+          "client_id": "366660097336-kf94e807vlm5tbe4qstt8ngr57s5ci7r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mqcart.app",
+            "certificate_hash": "5cfeddc51ab66d7e4688ae4b831081c05b20385c"
+          }
+        },
+        {
+          "client_id": "366660097336-bfpvjg7be1vr2bg8n4smbrvq4o646pd3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCy_N1NqQvs0kttuGx5aX9g_nhMzB0D56Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "366660097336-bfpvjg7be1vr2bg8n4smbrvq4o646pd3.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "366660097336-5fth38poc1ee5rhrntk9oira1226bhrp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.mqcart"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
