@@ -61,6 +61,8 @@ build/
 # Firebase secrets
 #google-services.json
 GoogleService-Info.plist
+android/app/keystore_base64.txt
+android/app/upload-keystore.txt
 
 # Keystore
 *.jks
