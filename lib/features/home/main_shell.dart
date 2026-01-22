@@ -77,56 +77,75 @@ class _MainShellState extends State<MainShell> {
 
   Widget _headerUI(String addressText) {
     return Container(
-      color: const Color(0xFFFFE1CC), // 🧡 Brand light orange
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFE1CC), // 🌤 brighter peach (less dull)
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              /// 🔹 Top Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  /// Brand + Delivery
                   RichText(
                     text: const TextSpan(
                       children: [
                         TextSpan(
-                          text: 'MQ Cart ',
+                          text: 'MQ Cart',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                            fontSize: 21,              // ⬆ Bigger
+                            fontWeight: FontWeight.w800, // ⬆ Strong bold
+                            color: Colors.black87,
                           ),
                         ),
+                        TextSpan(text: '  '),
                         TextSpan(
                           text: '⚡ Fast Delivery',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.black54,
+                            fontWeight: FontWeight.w600, // ⬆ Bold
+                            color: Colors.black87,
                           ),
                         ),
                       ],
                     ),
                   ),
+
+                  /// Cart + Logout
                   Row(
                     children: [
                       const CartBadge(),
                       IconButton(
                         icon: const Icon(Icons.logout),
+                        color: Colors.black87,
                         onPressed: _confirmAndLogout,
                       ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+
+              const SizedBox(height: 6),
+
+              /// 🔹 Address Row
               Row(
                 children: [
                   const Icon(
                     Icons.location_on_outlined,
                     size: 16,
-                    color: Colors.black54,
+                    color: Colors.black87,
                   ),
                   const SizedBox(width: 4),
                   Expanded(
@@ -134,13 +153,17 @@ class _MainShellState extends State<MainShell> {
                       addressText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500, // ⬆ Medium bold
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                   const Icon(
                     Icons.keyboard_arrow_down,
                     size: 18,
-                    color: Colors.black54,
+                    color: Colors.black87,
                   ),
                 ],
               ),

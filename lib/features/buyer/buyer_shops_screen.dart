@@ -192,20 +192,20 @@ class _BuyerShopsScreenState extends State<BuyerShopsScreen> {
                                     MainAxisAlignment.center,
                                 children: [
                                   CircleAvatar(
-                                    radius: 30,
-                                    backgroundColor:
-                                        mqLightOrange,
-                                    backgroundImage:
-                                        shop.logoUrl.isNotEmpty
-                                            ? NetworkImage(
-                                                shop.logoUrl)
-                                            : null,
-                                    child: shop.logoUrl.isEmpty
-                                        ? Icon(Icons.store,
-                                            color: mqOrange)
-                                        : null,
+                                    radius: 58, // ⬆ BIGGER image (76px)
+                                    backgroundColor: Colors.white,
+                                    child: CircleAvatar(
+                                      radius: 60,
+                                      backgroundColor: mqLightOrange,
+                                      backgroundImage: shop.logoUrl.isNotEmpty
+                                          ? NetworkImage(shop.logoUrl)
+                                          : null,
+                                      child: shop.logoUrl.isEmpty
+                                          ? Icon(Icons.store, size: 28, color: mqOrange)
+                                          : null,
+                                    ),
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 10),
                                   Text(
                                     shop.shopName,
                                     maxLines: 2,
