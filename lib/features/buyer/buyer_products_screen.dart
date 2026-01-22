@@ -30,363 +30,338 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.shop.shopName),
-        actions: [
-          ValueListenableBuilder<int>(
-            valueListenable: cartService.cartItemCount,
-            builder: (context, count, _) {
-              return Stack(
+      body: CustomScrollView(
+        slivers: [
+
+          /// 🖼️ BANNER + APP BAR (SCROLLS)
+          SliverAppBar(
+            expandedHeight: 180,
+            pinned: true,
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            title: Text(widget.shop.shopName),
+            actions: [
+              ValueListenableBuilder<int>(
+                valueListenable: cartService.cartItemCount,
+                builder: (context, count, _) {
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.shopping_cart),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CartScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      if (count > 0)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: CircleAvatar(
+                            radius: 8,
+                            backgroundColor: mqOrange,
+                            child: Text(
+                              '$count',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: widget.shop.bannerUrl.isNotEmpty
+                  ? Image.network(
+                      widget.shop.bannerUrl,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      color: mqLightOrange,
+                      child: const Center(
+                        child: Icon(Icons.storefront, size: 48),
+                      ),
+                    ),
+            ),
+          ),
+
+          /// 🏪 SHOP HEADER (SCROLLS)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.shopping_cart),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const CartScreen(),
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: mqLightOrange,
+                    backgroundImage: widget.shop.logoUrl.isNotEmpty
+                        ? NetworkImage(widget.shop.logoUrl)
+                        : null,
+                    child: widget.shop.logoUrl.isEmpty
+                        ? Icon(Icons.store, color: mqOrange)
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.shop.shopName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium,
+                        ),
+                        if (widget.shop.description.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              widget.shop.description,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          /// 🔍 SEARCH BAR (SCROLLS)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 8),
+              child: TextField(
+                onChanged: (v) => setState(() => searchQuery = v),
+                decoration: InputDecoration(
+                  hintText: 'Search products in shop',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: mqLightOrange,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: Divider()),
+
+          /// 🛍️ PRODUCTS GRID (INLINE – UNCHANGED LOGIC)
+          StreamBuilder<List<ProductModel>>(
+            stream: productRepository
+                .streamProductsForShop(widget.shop.shopId),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              final products = snapshot.data!
+                  .where((p) => p.name
+                      .toLowerCase()
+                      .contains(searchQuery.toLowerCase()))
+                  .toList();
+
+              if (products.isEmpty) {
+                return const SliverFillRemaining(
+                  child: Center(
+                    child: Text('No products available in this shop'),
+                  ),
+                );
+              }
+
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 120),
+                sliver: SliverGrid(
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.70,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final product = products[index];
+
+                      final cartItem = cartService.items
+                          .firstWhereOrNull(
+                              (e) => e.productId == product.id);
+
+                      final int qty = cartItem?.quantity ?? 0;
+                      final bool outOfStock = product.quantity <= 0;
+                      final bool maxReached =
+                          product.quantity > 0 &&
+                              qty >= product.quantity;
+
+                      /// 🔴 SAME PRODUCT CARD CODE (UNCHANGED)
+                      return Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: mqOrange.withOpacity(0.12),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          BuyerProductDetailScreen(
+                                              product: product),
+                                    ),
+                                  );
+                                },
+                                child: ClipRRect(
+                                  borderRadius:
+                                      BorderRadius.circular(12),
+                                  child: product.coverImage.isNotEmpty
+                                      ? Image.network(
+                                          product.coverImage,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                        )
+                                      : Container(
+                                          color: mqLightOrange,
+                                          child: const Center(
+                                            child: Icon(Icons.image),
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              product.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '₹${product.price}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                qty == 0
+                                    ? OutlinedButton(
+                                        style: OutlinedButton
+                                            .styleFrom(
+                                          foregroundColor: mqOrange,
+                                          side: const BorderSide(
+                                              color: mqOrange),
+                                        ),
+                                        onPressed: outOfStock
+                                            ? null
+                                            : () {
+                                                final result =
+                                                    cartService
+                                                        .addProduct(
+                                                            product);
+                                                if (result ==
+                                                    AddProductResult
+                                                        .multiSellerNotAllowed) {
+                                                  ScaffoldMessenger.of(
+                                                          context)
+                                                      .showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'You can order from only one seller at a time',
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                        child: const Text('ADD'),
+                                      )
+                                    : Row(
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                                Icons.remove,
+                                                size: 16),
+                                            onPressed: () {
+                                              cartService
+                                                  .decreaseQuantity(
+                                                      product.id);
+                                            },
+                                          ),
+                                          Text(
+                                            qty.toString(),
+                                            style: const TextStyle(
+                                                fontWeight:
+                                                    FontWeight.bold),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.add,
+                                              size: 16,
+                                              color: maxReached
+                                                  ? Colors.grey
+                                                  : mqOrange,
+                                            ),
+                                            onPressed: maxReached
+                                                ? null
+                                                : () {
+                                                    cartService
+                                                        .increaseQuantity(
+                                                            product.id);
+                                                  },
+                                          ),
+                                        ],
+                                      ),
+                              ],
+                            ),
+                          ],
                         ),
                       );
                     },
+                    childCount: products.length,
                   ),
-                  if (count > 0)
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: CircleAvatar(
-                        radius: 8,
-                        backgroundColor: mqOrange,
-                        child: Text(
-                          '$count',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+                ),
               );
             },
           ),
         ],
       ),
 
-      body: Column(
-        children: [
-          /// 🖼️ SHOP BANNER
-          widget.shop.bannerUrl.isNotEmpty
-              ? Image.network(
-                  widget.shop.bannerUrl,
-                  width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
-                )
-              : Container(
-                  height: 180,
-                  width: double.infinity,
-                  color: mqLightOrange,
-                  child: const Center(
-                    child: Icon(Icons.storefront, size: 48),
-                  ),
-                ),
-
-          /// 🏪 SHOP HEADER
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 32,
-                  backgroundColor: mqLightOrange,
-                  backgroundImage: widget.shop.logoUrl.isNotEmpty
-                      ? NetworkImage(widget.shop.logoUrl)
-                      : null,
-                  child: widget.shop.logoUrl.isEmpty
-                      ? Icon(Icons.store, color: mqOrange)
-                      : null,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.shop.shopName,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium,
-                      ),
-                      if (widget.shop.description.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            widget.shop.description,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          /// 🔍 SEARCH BAR
-          Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 8),
-            child: TextField(
-              onChanged: (v) =>
-                  setState(() => searchQuery = v),
-              decoration: InputDecoration(
-                hintText: 'Search products in shop',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: mqLightOrange,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-
-          const Divider(),
-
-          /// 🛍️ PRODUCTS GRID (REACTIVE LIKE BUYER HOME)
-          Expanded(
-            child: StreamBuilder<List<ProductModel>>(
-              stream: productRepository
-                  .streamProductsForShop(widget.shop.shopId),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(
-                      child: CircularProgressIndicator());
-                }
-
-                final products = snapshot.data!
-                    .where((p) => p.name
-                        .toLowerCase()
-                        .contains(searchQuery.toLowerCase()))
-                    .toList();
-
-                if (products.isEmpty) {
-                  return const Center(
-                    child: Text(
-                        'No products available in this shop'),
-                  );
-                }
-
-                return ValueListenableBuilder<int>(
-                  valueListenable: cartService.cartItemCount,
-                  builder: (context, _, __) {
-                    return GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(
-                          12, 0, 12, 120),
-                      itemCount: products.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        childAspectRatio: 0.70,
-                      ),
-                      itemBuilder: (context, index) {
-                        final product = products[index];
-
-                        final cartItem = cartService.items
-                            .firstWhereOrNull(
-                                (e) =>
-                                    e.productId ==
-                                    product.id);
-
-                        final int qty =
-                            cartItem?.quantity ?? 0;
-
-                        final bool outOfStock =
-                            product.quantity <= 0;
-                        final bool maxReached =
-                            product.quantity > 0 &&
-                                qty >= product.quantity;
-
-                        return Container(
-                          padding:
-                              const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius:
-                                BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: mqOrange
-                                    .withOpacity(0.12),
-                                blurRadius: 8,
-                                offset:
-                                    const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              /// IMAGE → DETAILS
-                              Expanded(
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => BuyerProductDetailScreen(
-                                            product: product,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: product.coverImage.isNotEmpty
-                                          ? Image.network(
-                                              product.coverImage,
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                            )
-                                          : Container(
-                                              color: mqLightOrange,
-                                              child: const Center(
-                                                child: Icon(Icons.image),
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                ),
-
-                              const SizedBox(height: 6),
-                              Text(
-                                product.name,
-                                maxLines: 2,
-                                overflow:
-                                    TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontWeight:
-                                        FontWeight.w600),
-                              ),
-                              const SizedBox(height: 4),
-
-                              /// PRICE + CART ACTIONS
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment
-                                        .spaceBetween,
-                                children: [
-                                  Text(
-                                    '₹${product.price}',
-                                    style: const TextStyle(
-                                        fontWeight:
-                                            FontWeight
-                                                .bold),
-                                  ),
-                                  qty == 0
-                                      ? OutlinedButton(
-                                          style: OutlinedButton
-                                              .styleFrom(
-                                            foregroundColor:
-                                                mqOrange,
-                                            side:
-                                                const BorderSide(
-                                                    color:
-                                                        mqOrange),
-                                          ),
-                                          onPressed:
-                                              outOfStock
-                                                  ? null
-                                                  : () {
-                                                      final result =
-                                                          cartService.addProduct(
-                                                              product);
-
-                                                      if (result ==
-                                                          AddProductResult.multiSellerNotAllowed) {
-                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text(
-                                                              'You can order from only one seller at a time',
-                                                            ),
-                                                          ),
-                                                        );
-                                                      }
-                                                    },
-                                          child:
-                                              const Text(
-                                                  'ADD'),
-                                        )
-                                      : Row(
-                                          children: [
-                                            IconButton(
-                                              icon:
-                                                  const Icon(
-                                                      Icons
-                                                          .remove,
-                                                      size:
-                                                          16),
-                                              onPressed:
-                                                  () {
-                                                cartService
-                                                    .decreaseQuantity(
-                                                        product.id);
-                                              },
-                                            ),
-                                            Text(
-                                              qty
-                                                  .toString(),
-                                              style: const TextStyle(
-                                                  fontWeight:
-                                                      FontWeight
-                                                          .bold),
-                                            ),
-                                            IconButton(
-                                              icon: Icon(
-                                                Icons.add,
-                                                size: 16,
-                                                color: maxReached
-                                                    ? Colors
-                                                        .grey
-                                                    : mqOrange,
-                                              ),
-                                              onPressed:
-                                                  maxReached
-                                                      ? null
-                                                      : () {
-                                                          cartService.increaseQuantity(
-                                                              product.id);
-                                                        },
-                                            ),
-                                          ],
-                                        ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-
-      /// 🟠 VIEW CART BAR (GLOBAL)
+      /// 🟠 BOTTOM CART BAR (UNCHANGED)
       bottomNavigationBar: ValueListenableBuilder<int>(
         valueListenable: cartService.cartItemCount,
         builder: (context, count, _) {
           if (count == 0) return const SizedBox();
-
           return SafeArea(
             top: false,
             child: Container(
@@ -402,13 +377,12 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                 ],
               ),
               child: Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     '$count item(s) in cart',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold),
+                    style:
+                        const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
@@ -418,15 +392,13 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) =>
-                              const CartScreen(),
+                          builder: (_) => const CartScreen(),
                         ),
                       );
                     },
                     child: const Text(
                       'View Cart',
-                      style:
-                          TextStyle(color: Colors.white),
+                      style: TextStyle(color: Colors.white),
                     ),
                   ),
                 ],
@@ -436,5 +408,5 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
         },
       ),
     );
-  }
+}
 }
