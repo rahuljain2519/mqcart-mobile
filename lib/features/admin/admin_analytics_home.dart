@@ -44,6 +44,7 @@ class AdminAnalyticsHome extends StatelessWidget {
     );
   }
 
+
   void _go(BuildContext context, Widget page) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
