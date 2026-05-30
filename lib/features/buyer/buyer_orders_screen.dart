@@ -53,15 +53,15 @@ class BuyerOrdersScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.only(bottom: 16),
             children: [
-              if (activeOrders.isNotEmpty) ...[(
+              if (activeOrders.isNotEmpty) ...[
                 _sectionTitle('ACTIVE ORDERS'),
                 ...activeOrders.map(_buildOrderCard),
               ],
-              if (deliveredOrders.isNotEmpty) ...[(
+              if (deliveredOrders.isNotEmpty) ...[
                 _sectionTitle('DELIVERED'),
                 ...deliveredOrders.map(_buildOrderCard),
               ],
-              if (rejectedOrders.isNotEmpty) ...[(
+              if (rejectedOrders.isNotEmpty) ...[
                 _sectionTitle('REJECTED'),
                 ...rejectedOrders.map(_buildOrderCard),
               ],
