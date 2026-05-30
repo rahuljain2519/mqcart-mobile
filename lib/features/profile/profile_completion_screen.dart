@@ -100,7 +100,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       await _userRepository.updateUser(updatedUser);
 
       if (mounted && widget.isEditMode) {
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       _showError('Failed to save profile. Please try again.');
