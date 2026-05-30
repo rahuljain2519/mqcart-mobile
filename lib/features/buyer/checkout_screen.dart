@@ -144,6 +144,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           '',
         ),
         shopName: _shop!.shopName,
+        shopPhone: _shop!.phone,
         items: cartService.items.map((item) {
           return {
             'productId': item.productId,
