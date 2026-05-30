@@ -4,7 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../repositories/order_repository.dart';
 import '../../../repositories/product_repository.dart';
-import '../../../repositories/shop_repository.dart';
 import '../../../models/order_model.dart';
 import 'buyer_product_detail_screen.dart';
 
@@ -100,7 +99,7 @@ class BuyerOrdersScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: mqOrange.withOpacity(0.12),
+            color: mqOrange.withValues(alpha: 0.12),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -197,7 +196,7 @@ class BuyerOrdersScreen extends StatelessWidget {
           ),
 
           // ---------------------------
-          // CALL STORE (PHASE 1)
+          // CALL STORE (FIXED)
           // ---------------------------
           if (order.status == 'placed' || order.status == 'accepted')
             Padding(
@@ -217,11 +216,9 @@ class BuyerOrdersScreen extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 onPressed: () async {
-                  final shop =
-                      await ShopRepository().getMyShop(order.sellerId);
-                  if (shop == null || shop.phone.isEmpty) return;
+                  if (order.shopPhone.isEmpty) return;
 
-                  final uri = Uri.parse('tel:${shop.phone}');
+                  final uri = Uri.parse('tel:${order.shopPhone}');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri);
                   }
@@ -345,7 +342,7 @@ class BuyerOrdersScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
