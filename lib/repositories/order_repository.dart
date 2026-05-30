@@ -14,6 +14,7 @@ class OrderRepository {
     required String flatNumber,      // 🆕
     required String societyName,     // 🆕
     required String shopName,
+    required String shopPhone,
     required List<Map<String, dynamic>> items,
     required double totalAmount,
     // 🆕 PAYMENT PARAMS
@@ -28,6 +29,7 @@ class OrderRepository {
       flatNumber: flatNumber,        // 🆕
       societyName: societyName,      // 🆕
       shopName: shopName,
+      shopPhone: shopPhone,
       items: items,
       totalAmount: totalAmount,
       status: 'placed',

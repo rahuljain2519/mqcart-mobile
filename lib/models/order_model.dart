@@ -8,6 +8,7 @@ class OrderModel {
   final String flatNumber;
   final String societyName;
   final String shopName;
+  final String shopPhone;
   final List<Map<String, dynamic>> items;
   final double totalAmount;
   final String status; // placed | accepted | delivered
@@ -29,6 +30,7 @@ class OrderModel {
     required this.status,
     this.flatNumber = '',
     this.societyName = '',
+    this.shopPhone = '',
     this.createdAt,
     this.updatedAt,
      // 🆕 SAFE DEFAULTS (CRITICAL)
@@ -47,6 +49,7 @@ class OrderModel {
       flatNumber: json['flatNumber'] ?? '',
       societyName: json['societyName'] ?? '',
       shopName: json['shopName'] ?? 'Nearby Store',
+      shopPhone: json['shopPhone'] ?? '',
       status: json['status'] ?? 'placed',
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
@@ -67,6 +70,7 @@ class OrderModel {
       'flatNumber': flatNumber,
       'societyName': societyName,
       'shopName': shopName,
+      'shopPhone': shopPhone,
       // 🆕 PAYMENT DATA
       'paymentMethod': paymentMethod,
       'paymentStatus': paymentStatus,

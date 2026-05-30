@@ -53,15 +53,15 @@ class BuyerOrdersScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.only(bottom: 16),
             children: [
-              if (activeOrders.isNotEmpty) ...[
+              if (activeOrders.isNotEmpty) ...[(
                 _sectionTitle('ACTIVE ORDERS'),
                 ...activeOrders.map(_buildOrderCard),
               ],
-              if (deliveredOrders.isNotEmpty) ...[
+              if (deliveredOrders.isNotEmpty) ...[(
                 _sectionTitle('DELIVERED'),
                 ...deliveredOrders.map(_buildOrderCard),
               ],
-              if (rejectedOrders.isNotEmpty) ...[
+              if (rejectedOrders.isNotEmpty) ...[(
                 _sectionTitle('REJECTED'),
                 ...rejectedOrders.map(_buildOrderCard),
               ],
@@ -197,7 +197,7 @@ class BuyerOrdersScreen extends StatelessWidget {
           ),
 
           // ---------------------------
-          // CALL STORE (PHASE 1)
+          // CALL STORE (FIXED)
           // ---------------------------
           if (order.status == 'placed' || order.status == 'accepted')
             Padding(
@@ -217,11 +217,9 @@ class BuyerOrdersScreen extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 onPressed: () async {
-                  final shop =
-                      await ShopRepository().getMyShop(order.sellerId);
-                  if (shop == null || shop.phone.isEmpty) return;
+                  if (order.shopPhone.isEmpty) return;
 
-                  final uri = Uri.parse('tel:${shop.phone}');
+                  final uri = Uri.parse('tel:${order.shopPhone}');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri);
                   }
