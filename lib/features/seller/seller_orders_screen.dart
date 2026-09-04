@@ -220,7 +220,9 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
           const Divider(),
           ...order.items.map((item) {
             return ListTile(
-              title: Text(item['name']),
+              title: Text(item['optionName'] != null
+                  ? "${item['name']} (${item['optionName']})"
+                  : item['name']),
               subtitle: Text('₹${item['price']} × ${item['quantity']}'),
             );
           }).toList(),
@@ -293,6 +295,8 @@ class _OrderActions extends StatelessWidget {
                   return {
                     'productId': item['productId'],
                     'quantity': item['quantity'],
+                    if (item['optionName'] != null)
+                      'optionName': item['optionName'],
                   };
                 }).toList(),
               );

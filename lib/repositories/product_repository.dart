@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/datasources/product_remote_ds.dart';
 import '../models/product_model.dart';
 import '../services/firestore_service.dart';
+import '../core/stock_delta.dart';
 
 class ProductRepository {
   final ProductRemoteDS _remoteDS = ProductRemoteDS();
@@ -39,6 +40,10 @@ class ProductRepository {
     int? deliveryMaxValue,
     int? deliveryMinMinutes,
     int? deliveryMaxMinutes,
+
+    // 🆕 VARIANT OPTIONS
+    String? optionLabel,
+    List<ProductOption> options = const [],
   }) async {
     final product = ProductModel(
       id: '',
@@ -61,6 +66,10 @@ class ProductRepository {
       deliveryMaxValue: deliveryMaxValue,
       deliveryMinMinutes: deliveryMinMinutes,
       deliveryMaxMinutes: deliveryMaxMinutes,
+
+      // 🆕 VARIANT OPTIONS
+      optionLabel: optionLabel,
+      options: options,
     );
 
     await validateProductLimit(shopId: product.shopId);
@@ -127,43 +136,32 @@ class ProductRepository {
         );
   }
 
-  /// 🔒 Reduce product stock after successful order
+  /// 🔒 Reduce product stock after successful order (option-aware).
+  /// Groups items by productId so two options of one product = one read/write,
+  /// and decrements options[i].quantity when the item carries an optionName.
   Future<void> reduceStockAfterOrder(
     List<Map<String, dynamic>> items,
   ) async {
-    final firestore = FirebaseFirestore.instance;
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final entries = groupByProduct(items).entries.toList();
 
-    await firestore.runTransaction((transaction) async {
-      final Map<DocumentReference, int> updates = {};
-
-      // 1️⃣ READ ALL DOCUMENTS FIRST
-      for (final item in items) {
-        final productId = item['productId'] as String;
-        final qty = item['quantity'] as int;
-
-        final ref =
-            firestore.collection('products').doc(productId);
-        final snap = await transaction.get(ref);
-
-        if (!snap.exists) {
-          throw Exception('Product not found');
-        }
-
-        final data = snap.data()!;
-        final currentStock = (data['quantity'] ?? 0) as int;
-
-        if (currentStock < qty) {
-          throw Exception('Insufficient stock');
-        }
-
-        updates[ref] = currentStock - qty;
+      final snaps = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final e in entries) {
+        snaps.add(await transaction.get(
+          FirebaseFirestore.instance.collection('products').doc(e.key),
+        ));
       }
 
-      // 2️⃣ WRITE AFTER ALL READS
-      for (final entry in updates.entries) {
-        transaction.update(entry.key, {
-          'quantity': entry.value,
-        });
+      final patches = <Map<String, dynamic>>[];
+      for (var i = 0; i < entries.length; i++) {
+        if (!snaps[i].exists) throw Exception('Product not found');
+        patches.add(
+          applyStockDelta(snaps[i].data()!, entries[i].value, -1, validate: true),
+        );
+      }
+
+      for (var i = 0; i < entries.length; i++) {
+        transaction.update(snaps[i].reference, patches[i]);
       }
     });
   }

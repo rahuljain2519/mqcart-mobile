@@ -236,7 +236,9 @@ class BuyerOrdersScreen extends StatelessWidget {
                   dense: true,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                  title: Text(item['name']),
+                  title: Text(item['optionName'] != null
+                      ? "${item['name']} (${item['optionName']})"
+                      : item['name']),
                   subtitle: Text(
                     '₹${item['price']} × ${item['quantity']}',
                   ),

@@ -5,6 +5,9 @@ class CartItemModel {
   final String imageUrl;
   final String sellerId;
 
+  /// Set when the buyer picked a variant option (e.g. "500g").
+  final String? optionName;
+
   int quantity;
 
   CartItemModel({
@@ -13,8 +16,13 @@ class CartItemModel {
     required this.price,
     required this.imageUrl,
     required this.sellerId,
+    this.optionName,
     this.quantity = 1,
   });
+
+  /// Cart-line identity: product + option when set.
+  String get lineKey =>
+      optionName == null ? productId : '$productId|$optionName';
 
   double get totalPrice => price * quantity;
 
@@ -25,6 +33,7 @@ class CartItemModel {
       'price': price,
       'imageUrl': imageUrl,
       'sellerId': sellerId,
+      if (optionName != null) 'optionName': optionName,
       'quantity': quantity,
     };
   }
@@ -36,6 +45,7 @@ class CartItemModel {
       price: (json['price'] as num).toDouble(),
       imageUrl: json['imageUrl'] ?? '',
       sellerId: json['sellerId'],
+      optionName: json['optionName'],
       quantity: json['quantity'] ?? 1,
     );
   }

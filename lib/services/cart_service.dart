@@ -7,12 +7,13 @@ import 'cart_storage_service.dart';
 enum AddProductResult {
   success,
   multiSellerNotAllowed,
-  }
+}
+
 class CartService {
   CartService._internal();
   static final CartService instance = CartService._internal();
 
-  /// Key = product.id
+  /// Key = cart-line key (productId, plus "|option" when a variant option is chosen)
   final Map<String, CartItemModel> _items = {};
 
   /// 🔔 GLOBAL CART COUNT NOTIFIER (USED FOR BADGE)
@@ -20,6 +21,9 @@ class CartService {
 
   /// 🔔 GLOBAL CART CHANGE NOTIFIER (USED FOR UI REFRESH)
   final ValueNotifier<int> cartRevision = ValueNotifier<int>(0);
+
+  static String keyFor(String productId, [String? optionName]) =>
+      optionName == null ? productId : '$productId|$optionName';
 
   /// ------------------------
   /// READ OPERATIONS
@@ -35,7 +39,14 @@ class CartService {
   double get totalAmount =>
       _items.values.fold(0, (sum, item) => sum + item.totalPrice);
 
-  bool contains(String productId) => _items.containsKey(productId);
+  /// True if this product (any option, or a specific option) is in the cart.
+  bool contains(String productId, {String? optionName}) {
+    if (optionName != null) return _items.containsKey(keyFor(productId, optionName));
+    return _items.values.any((i) => i.productId == productId);
+  }
+
+  int quantityOf(String productId, {String? optionName}) =>
+      _items[keyFor(productId, optionName)]?.quantity ?? 0;
 
   /// 🔒 CURRENT CART SELLER (DERIVED)
   String? get cartSellerId {
@@ -47,64 +58,67 @@ class CartService {
   /// WRITE OPERATIONS
   /// ------------------------
 
+  AddProductResult addProduct(ProductModel product, {String? optionName}) {
+    final existingSellerId = cartSellerId;
 
-  AddProductResult addProduct(ProductModel product) {
-  final existingSellerId = cartSellerId;
+    if (existingSellerId != null && existingSellerId != product.sellerId) {
+      return AddProductResult.multiSellerNotAllowed;
+    }
 
-  if (existingSellerId != null &&
-      existingSellerId != product.sellerId) {
-    return AddProductResult.multiSellerNotAllowed;
+    final key = keyFor(product.id, optionName);
+
+    if (_items.containsKey(key)) {
+      _items[key]!.quantity += 1;
+    } else {
+      _items[key] = CartItemModel(
+        productId: product.id,
+        name: product.name,
+        price: product.priceForOption(optionName),
+        imageUrl: product.coverImage,
+        sellerId: product.sellerId,
+        optionName: optionName,
+      );
+    }
+
+    _persist();
+    _notify();
+    return AddProductResult.success;
   }
 
-  if (_items.containsKey(product.id)) {
-    _items[product.id]!.quantity += 1;
-  } else {
-    _items[product.id] = CartItemModel(
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      imageUrl: product.coverImage,
-      sellerId: product.sellerId,
-    );
-  }
-
-  _persist();
-  _notify();
-  return AddProductResult.success;
-}
-
-  void increaseQuantity(String productId) {
-    if (_items.containsKey(productId)) {
-      _items[productId]!.quantity += 1;
+  void increaseQuantity(String productId, {String? optionName}) {
+    final key = keyFor(productId, optionName);
+    if (_items.containsKey(key)) {
+      _items[key]!.quantity += 1;
       _persist();
-      _notify(); // 🆕
+      _notify();
     }
   }
 
-  void decreaseQuantity(String productId) {
-    if (!_items.containsKey(productId)) return;
+  void decreaseQuantity(String productId, {String? optionName}) {
+    final key = keyFor(productId, optionName);
+    if (!_items.containsKey(key)) return;
 
-    final item = _items[productId]!;
+    final item = _items[key]!;
 
     if (item.quantity > 1) {
       item.quantity -= 1;
     } else {
-      _items.remove(productId);
+      _items.remove(key);
     }
     _persist();
-    _notify(); // 🆕
+    _notify();
   }
 
-  void removeProduct(String productId) {
-    _items.remove(productId);
+  void removeProduct(String productId, {String? optionName}) {
+    _items.remove(keyFor(productId, optionName));
     _persist();
-    _notify(); // 🆕
+    _notify();
   }
 
   void clearCart() {
     _items.clear();
     _persist();
-    _notify(); // 🆕
+    _notify();
   }
 
   /// ------------------------
@@ -115,18 +129,17 @@ class CartService {
     _items.clear();
 
     json.forEach((key, value) {
-      _items[key] = CartItemModel.fromJson(
+      final item = CartItemModel.fromJson(
         Map<String, dynamic>.from(value),
       );
+      _items[item.lineKey] = item;
     });
 
-    _notify(); // 🆕 ENSURE BADGE SYNC ON APP START
+    _notify();
   }
 
   Map<String, dynamic> toJson() {
-    return _items.map((key, item) {
-      return MapEntry(key, item.toJson());
-    });
+    return _items.map((key, item) => MapEntry(key, item.toJson()));
   }
 
   void _persist() {
@@ -158,7 +171,6 @@ class CartService {
       throw Exception('Cart is empty');
     }
 
-    // Single-seller checkout (current app logic)
     final sellerId = _items.values.first.sellerId;
 
     return {
@@ -172,6 +184,7 @@ class CartService {
           'price': item.price,
           'quantity': item.quantity,
           'sellerId': item.sellerId,
+          if (item.optionName != null) 'optionName': item.optionName,
         };
       }).toList(),
       'totalAmount': totalAmount,

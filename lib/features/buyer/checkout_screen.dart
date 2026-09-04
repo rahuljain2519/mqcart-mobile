@@ -129,6 +129,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return {
           'productId': item.productId,
           'quantity': item.quantity,
+          if (item.optionName != null) 'optionName': item.optionName,
         };
       }).toList();
 
@@ -151,6 +152,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'name': item.name,
             'price': item.price,
             'quantity': item.quantity,
+            if (item.optionName != null) 'optionName': item.optionName,
           };
         }).toList(),
         totalAmount: cartService.totalAmount,

@@ -165,15 +165,19 @@ class _BuyerHomeState extends State<BuyerHome> {
                             itemBuilder: (context, index) {
                               final product = products[index];
 
-                              final qty = cartService.contains(product.id)
-                                  ? cartService.items
+                              // Variant products always route to the detail
+                              // page (buyer must pick an option there).
+                              final qty = (product.hasOptions ||
+                                      !cartService.contains(product.id))
+                                  ? 0
+                                  : cartService.items
                                       .firstWhere((e) =>
-                                          e.productId == product.id)
-                                      .quantity
-                                  : 0;
+                                          e.productId == product.id &&
+                                          e.optionName == null)
+                                      .quantity;
 
                               final bool outOfStock =
-                                  product.quantity <= 0;
+                                  product.stockForOption(null) <= 0;
                               final bool maxReached =
                                   product.quantity > 0 &&
                                       qty >= product.quantity;
@@ -250,7 +254,9 @@ class _BuyerHomeState extends State<BuyerHome> {
                                                       .spaceBetween,
                                               children: [
                                                 Text(
-                                                  '₹${product.price}',
+                                                  product.hasOptions
+                                                      ? 'from ₹${product.displayPrice.toStringAsFixed(0)}'
+                                                      : '₹${product.price}',
                                                   style:
                                                       const TextStyle(
                                                     fontWeight:
@@ -273,6 +279,15 @@ class _BuyerHomeState extends State<BuyerHome> {
                                                             outOfStock
                                                                 ? null
                                                                 : () {
+                                                                      if (product.hasOptions) {
+                                                                        Navigator.push(
+                                                                          context,
+                                                                          MaterialPageRoute(
+                                                                            builder: (_) => BuyerProductDetailScreen(product: product),
+                                                                          ),
+                                                                        );
+                                                                        return;
+                                                                      }
                                                                       final result =
                     cartService.addProduct(product);
 
@@ -287,9 +302,10 @@ class _BuyerHomeState extends State<BuyerHome> {
                                                                         );
                                                                       }
                                                                     },
-                                                        child:
-                                                            const Text(
-                                                                'ADD'),
+                                                        child: Text(
+                                                            product.hasOptions
+                                                                ? 'OPTIONS'
+                                                                : 'ADD'),
                                                       )
                                                     : Row(
                                                         children: [

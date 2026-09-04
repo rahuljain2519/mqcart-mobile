@@ -22,6 +22,7 @@ class _BuyerProductDetailScreenState
     extends State<BuyerProductDetailScreen> {
   final PageController _pageController = PageController();
   int _currentIndex = 0;
+  String? _selectedOption; // 🆕 variant option
 
   static const Color mqOrange = Color(0xFFFF6A00);
   static const Color mqLightOrange = Color(0xFFFFF3E8);
@@ -29,6 +30,12 @@ class _BuyerProductDetailScreenState
   @override
   Widget build(BuildContext context) {
     final CartService cartService = CartService.instance;
+    final product = widget.product;
+    final bool hasOptions = product.hasOptions;
+    // Variant products need a selection before add-to-cart.
+    final bool canAct = !hasOptions || _selectedOption != null;
+    final int liveStock = product.stockForOption(_selectedOption);
+    final double shownPrice = product.priceForOption(_selectedOption);
 
     final List<String> images = widget.product.images.isNotEmpty
         ? widget.product.images
@@ -130,7 +137,9 @@ class _BuyerProductDetailScreenState
 
                 /// 💰 PRICE
                 Text(
-                  '₹${widget.product.price}',
+                  canAct
+                      ? '₹${shownPrice.toStringAsFixed(0)}'
+                      : 'from ₹${product.displayPrice.toStringAsFixed(0)}',
                   style: Theme.of(context)
                       .textTheme
                       .titleLarge
@@ -140,7 +149,35 @@ class _BuyerProductDetailScreenState
                       ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+
+                /// 🎚️ VARIANT OPTIONS
+                if (hasOptions) ...[
+                  Text(
+                    product.optionLabel ?? 'Options',
+                    style: const TextStyle(
+                        fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: product.options.map((o) {
+                      final sold = o.quantity <= 0;
+                      final sel = _selectedOption == o.name;
+                      return ChoiceChip(
+                        label: Text(
+                            '${o.name} · ₹${o.price.toStringAsFixed(0)}'),
+                        selected: sel,
+                        onSelected: sold
+                            ? null
+                            : (_) =>
+                                setState(() => _selectedOption = o.name),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 /// 📝 DESCRIPTION
                 Text(
@@ -165,15 +202,25 @@ class _BuyerProductDetailScreenState
                   builder: (context, _, __) {
                     final cartItem =
                         cartService.items.firstWhereOrNull(
-                      (e) => e.productId == widget.product.id,
+                      (e) =>
+                          e.productId == product.id &&
+                          e.optionName == _selectedOption,
                     );
 
                     final int qty = cartItem?.quantity ?? 0;
-                    final bool outOfStock =
-                        widget.product.quantity <= 0;
+                    final bool outOfStock = canAct && liveStock <= 0;
                     final bool maxReached =
-                        widget.product.quantity > 0 &&
-                            qty >= widget.product.quantity;
+                        liveStock > 0 && qty >= liveStock;
+
+                    if (hasOptions && _selectedOption == null) {
+                      return const Text(
+                        'Select an option above',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    }
 
                     if (outOfStock) {
                       return const Text(
@@ -205,8 +252,10 @@ class _BuyerProductDetailScreenState
                             ),
                           ),
                           onPressed: () {
-                            final result = cartService
-                                .addProduct(widget.product);
+                            final result = cartService.addProduct(
+                              product,
+                              optionName: _selectedOption,
+                            );
 
                             if (result ==
                                 AddProductResult
@@ -240,7 +289,9 @@ class _BuyerProductDetailScreenState
                             icon: const Icon(Icons.remove),
                             onPressed: () {
                               cartService.decreaseQuantity(
-                                  widget.product.id);
+                                product.id,
+                                optionName: _selectedOption,
+                              );
                             },
                           ),
                           Text(
@@ -261,7 +312,9 @@ class _BuyerProductDetailScreenState
                                 ? null
                                 : () {
                                     cartService.increaseQuantity(
-                                        widget.product.id);
+                                      product.id,
+                                      optionName: _selectedOption,
+                                    );
                                   },
                           ),
                         ],

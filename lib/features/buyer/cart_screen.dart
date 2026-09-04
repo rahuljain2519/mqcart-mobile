@@ -16,19 +16,21 @@ class CartScreen extends StatelessWidget {
     CartService cartService,
     List<ProductModel> products,
   ) {
-    final stockMap = {
-      for (final p in products) p.id: p.quantity,
-    };
+    final byId = {for (final p in products) p.id: p};
 
     for (final item in List<CartItemModel>.from(cartService.items)) {
-      final liveStock = stockMap[item.productId] ?? 0;
+      final p = byId[item.productId];
+      if (p == null) continue; // not in this batch — leave it
+      final liveStock = p.stockForOption(item.optionName);
 
       if (liveStock <= 0) {
-        cartService.removeProduct(item.productId);
+        cartService.removeProduct(item.productId,
+            optionName: item.optionName);
       } else if (item.quantity > liveStock) {
         final diff = item.quantity - liveStock;
         for (int i = 0; i < diff; i++) {
-          cartService.decreaseQuantity(item.productId);
+          cartService.decreaseQuantity(item.productId,
+              optionName: item.optionName);
         }
       }
     }
@@ -110,7 +112,8 @@ class CartScreen extends StatelessWidget {
                               (p) => p.id == item.productId,
                             );
 
-                        final int liveStock = product?.quantity ?? 0;
+                        final int liveStock =
+                            product?.stockForOption(item.optionName) ?? 0;
                         final bool maxReached =
                             item.quantity >= liveStock;
 
@@ -148,7 +151,9 @@ class CartScreen extends StatelessWidget {
                                       CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      item.name,
+                                      item.optionName == null
+                                          ? item.name
+                                          : '${item.name} · ${item.optionName}',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -169,7 +174,8 @@ class CartScreen extends StatelessWidget {
                                     icon: const Icon(Icons.remove),
                                     onPressed: () {
                                       cartService.decreaseQuantity(
-                                          item.productId);
+                                          item.productId,
+                                          optionName: item.optionName);
                                     },
                                   ),
                                   Text(
@@ -189,7 +195,8 @@ class CartScreen extends StatelessWidget {
                                         ? null
                                         : () {
                                             cartService.increaseQuantity(
-                                                item.productId);
+                                                item.productId,
+                                                optionName: item.optionName);
                                           },
                                   ),
                                 ],

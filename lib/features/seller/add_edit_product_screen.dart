@@ -25,6 +25,16 @@ class AddEditProductScreen extends StatefulWidget {
       _AddEditProductScreenState();
 }
 
+class _OptionRow {
+  final TextEditingController name;
+  final TextEditingController price;
+  final TextEditingController qty;
+  _OptionRow({String name = '', String price = '', String qty = ''})
+      : name = TextEditingController(text: name),
+        price = TextEditingController(text: price),
+        qty = TextEditingController(text: qty);
+}
+
 class _AddEditProductScreenState
     extends State<AddEditProductScreen> {
   final _nameController = TextEditingController();
@@ -32,6 +42,11 @@ class _AddEditProductScreenState
   final _quantityController = TextEditingController();
   final _categoryController = TextEditingController();
   final _descriptionController = TextEditingController();
+
+  // 🆕 VARIANT OPTIONS
+  bool _hasOptions = false;
+  final _optionLabelController = TextEditingController(text: 'Weight');
+  List<_OptionRow> _optionRows = [];
 
   final ProductRepository _productRepository =
       ProductRepository();
@@ -117,6 +132,20 @@ class _AddEditProductScreenState
         _deliveryMaxController.text =
             widget.product!.deliveryMaxValue?.toString() ?? '';
       }
+
+      // 🆕 LOAD VARIANT OPTIONS IF EXIST
+      if (widget.product!.hasOptions) {
+        _hasOptions = true;
+        _optionLabelController.text =
+            widget.product!.optionLabel ?? 'Option';
+        _optionRows = widget.product!.options
+            .map((o) => _OptionRow(
+                  name: o.name,
+                  price: o.price.toString(),
+                  qty: o.quantity.toString(),
+                ))
+            .toList();
+      }
     }
   }
 
@@ -201,15 +230,49 @@ class _AddEditProductScreenState
   // SAVE PRODUCT
   // -------------------------------
   Future<void> _saveProduct() async {
-    if (_nameController.text.isEmpty ||
-        _priceController.text.isEmpty ||
-        _selectedCategory == null) {
+    if (_nameController.text.isEmpty || _selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all required fields'),
-        ),
+        const SnackBar(content: Text('Please fill all required fields')),
       );
       return;
+    }
+
+    // 🆕 Resolve price / quantity / options.
+    double price;
+    int quantity;
+    List<ProductOption> options = [];
+
+    if (_hasOptions && _optionRows.isNotEmpty) {
+      for (final r in _optionRows) {
+        final n = r.name.text.trim();
+        final p = double.tryParse(r.price.text);
+        final q = int.tryParse(r.qty.text);
+        if (n.isEmpty || p == null || p < 0 || q == null || q < 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Every option needs a name, price and stock')),
+          );
+          return;
+        }
+        options.add(ProductOption(name: n, price: p, quantity: q));
+      }
+      if (options.map((o) => o.name).toSet().length != options.length) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Option names must be unique')),
+        );
+        return;
+      }
+      price = options.map((o) => o.price).reduce((a, b) => a < b ? a : b);
+      quantity = options.fold(0, (s, o) => s + o.quantity);
+    } else {
+      price = double.tryParse(_priceController.text) ?? -1;
+      quantity = int.tryParse(_quantityController.text) ?? 0;
+      if (price < 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid price')),
+        );
+        return;
+      }
     }
 
     int? minVal;
@@ -271,9 +334,8 @@ class _AddEditProductScreenState
         sellerId: uid,
         societyId: user.societyId,
         name: _nameController.text.trim(),
-        price: double.parse(_priceController.text),
-        quantity:
-            int.tryParse(_quantityController.text) ?? 0,
+        price: price,
+        quantity: quantity,
         category: _categoryController.text.trim(),
         description:
             _descriptionController.text.trim(),
@@ -288,13 +350,18 @@ class _AddEditProductScreenState
         deliveryMaxMinutes: _overrideDelivery
             ? _toMinutes(maxVal!, _deliveryUnit)
             : null,
+        optionLabel: _hasOptions
+            ? (_optionLabelController.text.trim().isEmpty
+                ? 'Option'
+                : _optionLabelController.text.trim())
+            : null,
+        options: options,
       );
     } else {
       final updated = widget.product!.copyWith(
         name: _nameController.text.trim(),
-        price: double.parse(_priceController.text),
-        quantity:
-            int.tryParse(_quantityController.text) ?? 0,
+        price: price,
+        quantity: quantity,
         category: _categoryController.text.trim(),
         description:
             _descriptionController.text.trim(),
@@ -309,6 +376,12 @@ class _AddEditProductScreenState
         deliveryMaxMinutes: _overrideDelivery
             ? _toMinutes(maxVal!, _deliveryUnit)
             : null,
+        optionLabel: _hasOptions
+            ? (_optionLabelController.text.trim().isEmpty
+                ? 'Option'
+                : _optionLabelController.text.trim())
+            : '',
+        options: options,
       );
 
       await _productRepository.updateProduct(updated);
@@ -365,18 +438,106 @@ class _AddEditProductScreenState
               },
             ),
 
-            TextField(
-              controller: _priceController,
-              decoration:
-                  const InputDecoration(labelText: 'Price'),
-              keyboardType: TextInputType.number,
+            if (!_hasOptions) ...[
+              TextField(
+                controller: _priceController,
+                decoration:
+                    const InputDecoration(labelText: 'Price'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: _quantityController,
+                decoration: const InputDecoration(
+                    labelText: 'Available Quantity'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+
+            const SizedBox(height: 12),
+
+            // 🆕 VARIANT OPTIONS
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Sizes / weights / colours'),
+              subtitle: const Text('One listing, buyer picks an option'),
+              value: _hasOptions,
+              onChanged: (val) {
+                setState(() {
+                  _hasOptions = val;
+                  if (val && _optionRows.isEmpty) {
+                    _optionRows = [
+                      _OptionRow(
+                        price: _priceController.text,
+                        qty: _quantityController.text,
+                      )
+                    ];
+                  }
+                });
+              },
             ),
-            TextField(
-              controller: _quantityController,
-              decoration: const InputDecoration(
-                  labelText: 'Available Quantity'),
-              keyboardType: TextInputType.number,
-            ),
+
+            if (_hasOptions) ...[
+              TextField(
+                controller: _optionLabelController,
+                decoration: const InputDecoration(
+                    labelText: 'Option type (Weight / Size / Colour)'),
+              ),
+              const SizedBox(height: 8),
+              ..._optionRows.asMap().entries.map((e) {
+                final i = e.key;
+                final row = e.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: row.name,
+                          decoration: const InputDecoration(
+                              labelText: 'Name', hintText: '500g'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: row.price,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              const InputDecoration(labelText: '₹'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: row.qty,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              const InputDecoration(labelText: 'Stock'),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.red),
+                        onPressed: () =>
+                            setState(() => _optionRows.removeAt(i)),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add option'),
+                  onPressed: () =>
+                      setState(() => _optionRows.add(_OptionRow())),
+                ),
+              ),
+            ],
+
             TextField(
               controller: _descriptionController,
               maxLines: 3,

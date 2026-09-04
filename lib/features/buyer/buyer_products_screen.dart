@@ -201,11 +201,14 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                       final product = products[index];
 
                       final cartItem = cartService.items
-                          .firstWhereOrNull(
-                              (e) => e.productId == product.id);
+                          .firstWhereOrNull((e) =>
+                              e.productId == product.id &&
+                              e.optionName == null);
 
-                      final int qty = cartItem?.quantity ?? 0;
-                      final bool outOfStock = product.quantity <= 0;
+                      final int qty =
+                          product.hasOptions ? 0 : (cartItem?.quantity ?? 0);
+                      final bool outOfStock =
+                          product.stockForOption(null) <= 0;
                       final bool maxReached =
                           product.quantity > 0 &&
                               qty >= product.quantity;
@@ -271,7 +274,9 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                                   MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  '₹${product.price}',
+                                  product.hasOptions
+                                      ? 'from ₹${product.displayPrice.toStringAsFixed(0)}'
+                                      : '₹${product.price}',
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold),
                                 ),
@@ -286,6 +291,17 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                                         onPressed: outOfStock
                                             ? null
                                             : () {
+                                                if (product.hasOptions) {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          BuyerProductDetailScreen(
+                                                              product: product),
+                                                    ),
+                                                  );
+                                                  return;
+                                                }
                                                 final result =
                                                     cartService
                                                         .addProduct(
@@ -304,7 +320,9 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                                                   );
                                                 }
                                               },
-                                        child: const Text('ADD'),
+                                        child: Text(product.hasOptions
+                                            ? 'OPTIONS'
+                                            : 'ADD'),
                                       )
                                     : Row(
                                         children: [
