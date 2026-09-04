@@ -8,6 +8,7 @@ import '../../repositories/user_repository.dart';
 import '../../models/product_model.dart';
 import '../../models/user_model.dart';
 import '../../services/cart_service.dart';
+import '../../config/categories.dart';
 import 'category_scroller.dart';
 
 class BuyerHome extends StatefulWidget {
@@ -132,14 +133,9 @@ class _BuyerHomeState extends State<BuyerHome> {
                           return matchesSearch;
                         }
 
-                        final productCategory =
-                            p.category.toLowerCase().trim();
-                        final selectedCat =
-                            selectedCategory.toLowerCase().trim();
-
+                        // Exact match after normalising legacy category names.
                         final matchesCategory =
-                            productCategory.isNotEmpty &&
-                            productCategory.contains(selectedCat);
+                            normalizeCategory(p.category) == selectedCategory;
 
                         return matchesSearch && matchesCategory;
                       }).toList();

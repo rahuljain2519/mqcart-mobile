@@ -8,6 +8,7 @@ import '../../repositories/product_repository.dart';
 import '../../models/product_model.dart';
 import '../../core/storage/product_storage_service.dart';
 import '../../repositories/user_repository.dart';
+import '../../config/categories.dart';
 
 class AddEditProductScreen extends StatefulWidget {
   final String shopId;
@@ -63,21 +64,8 @@ class _AddEditProductScreenState
     }
   }
 
-  // -------------------------------
-  // CATEGORY LIST (NEW)
-  // -------------------------------
-  final List<String> _categories = [
-    'Groceries',
-    'Bakery',
-    'Snacks',
-    'Personal Care',
-    'Household',
-    'Stationary',
-    'Clothing',
-    'Food',
-    'Art & Decor',
-    'Other',
-  ];
+  // Shared canonical list — see lib/config/categories.dart
+  final List<String> _categories = kProductCategories;
 
   String? _selectedCategory;
 
@@ -107,7 +95,10 @@ class _AddEditProductScreenState
       _descriptionController.text =
           widget.product!.description;
 
-      _selectedCategory = widget.product!.category;
+      // Normalise legacy values ("Groceries", "Clothing"…) to the canonical
+      // list so the dropdown has a matching item; unknown -> null.
+      final norm = normalizeCategory(widget.product!.category);
+      _selectedCategory = _categories.contains(norm) ? norm : null;
 
       _existingImages = List.from(widget.product!.images);
 

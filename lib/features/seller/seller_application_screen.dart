@@ -9,6 +9,7 @@ import '../../models/seller_application_model.dart';
 import '../../data/datasources/seller_application_remote_ds.dart';
 import '../../repositories/society_repository.dart';
 import '../../models/society_model.dart';
+import '../../config/categories.dart';
 
 class SellerApplicationScreen extends StatefulWidget {
   const SellerApplicationScreen({super.key});
@@ -27,7 +28,10 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
   final _panController = TextEditingController();
   final _aadhaarController = TextEditingController();
   final _gstinController = TextEditingController();
+  final _registrationController = TextEditingController();
   final _flatBlockController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
   final _pincodeController = TextEditingController();
 
   final _bankAccountController = TextEditingController();
@@ -50,9 +54,7 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
 
   // 🔽 Dropdown values
   String? _category;
-  String? _city;
-  String? _state;
-  String? _businessType;
+  String _businessType = 'Individual';
 
   String? _selectedSocietyId;
   SocietyModel? _selectedSociety;
@@ -62,19 +64,12 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
 
   bool _loading = false;
 
-  // Static dropdown data
-  final List<String> _categories = [
-    'Grocery',
-    'Bakery',
-    'Snacks',
-    'Personal Care',
-    'Home and Utility',
-    'Stationary',
-    'Fashion',
-    'Food',
-    'Art & Decor',
-    'Other',
-  ];
+  // Individual / proprietorship use personal ID (PAN + Aadhaar); registered
+  // entities use GSTIN + a registration number instead.
+  bool get _personal =>
+      _businessType == 'Individual' || _businessType == 'Proprietorship';
+
+  final List<String> _categories = kShopCategories;
 
   final List<String> _businessTypes = [
     'Individual',
@@ -83,12 +78,6 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
     'Private Limited',
     'LLP',
   ];
-
-  final List<String> _states = ['Karnataka'];
-
-  final Map<String, List<String>> _citiesByState = {
-    'Karnataka': ['Bangalore', 'Mysore'],
-  };
 
   Future<File?> _pickDocument() async {
     final result = await FilePicker.platform.pickFiles(
@@ -145,22 +134,28 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
 
     setState(() => _loading = true);
 
+    final aad = _aadhaarController.text.trim();
+
     try {
       final application = SellerApplicationModel(
         uid: user.uid,
         shopName: _shopNameController.text.trim(),
         category: _category!,
         description: _descriptionController.text.trim(),
-        businessType: _businessType!,
-        panNumber: _panController.text.trim(),
-        aadhaarLast4: _aadhaarController.text.trim(),
+        businessType: _businessType,
+        panNumber: _panController.text.trim().toUpperCase(),
+        aadhaarLast4:
+            _personal && aad.length >= 4 ? aad.substring(aad.length - 4) : '',
         gstin: _gstinController.text.trim().isEmpty
             ? null
             : _gstinController.text.trim(),
+        registrationNumber: _personal || _registrationController.text.trim().isEmpty
+            ? null
+            : _registrationController.text.trim(),
         addressLine:
             'Flat: ${_flatBlockController.text.trim()}, Society: ${_selectedSociety!.name}',
-        city: _city!,
-        state: _state!,
+        city: _cityController.text.trim(),
+        state: _stateController.text.trim(),
         pincode: _pincodeController.text.trim(),
         bankAccountNumber: _bankAccountController.text.trim().isEmpty
             ? null
@@ -266,7 +261,7 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
               ),
 
               _dropdown(
-                label: 'Category',
+                label: 'What do you sell?',
                 value: _category,
                 items: _categories,
                 validator: (v) =>
@@ -274,22 +269,21 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                 onChanged: (v) => setState(() => _category = v),
               ),
 
-              _field(_descriptionController, 'Description'),
-
               _dropdown(
                 label: 'Business Type',
                 value: _businessType,
                 items: _businessTypes,
                 validator: (v) =>
                     v == null ? 'Business type is required' : null,
-                onChanged: (v) => setState(() => _businessType = v),
+                onChanged: (v) =>
+                    setState(() => _businessType = v ?? 'Individual'),
               ),
 
               const Divider(),
 
               _field(
                 _panController,
-                'PAN Number',
+                _personal ? 'PAN Number' : 'Business PAN',
                 validator: (v) =>
                     v == null || v.length != 10 ? 'Enter valid PAN' : null,
               ),
@@ -313,45 +307,63 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                         )
                       : Text(_panUploaded ? 'PAN Uploaded ✅' : 'Upload PAN Document'),
                 ),
+              if (_personal) ...[
+                _field(
+                  _aadhaarController,
+                  'Aadhaar Number (12 digits)',
+                  keyboard: TextInputType.number,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) {
+                      return 'Aadhaar is required';
+                    }
+                    if (!RegExp(r'^\d{12}$').hasMatch(v)) {
+                      return 'Aadhaar must be 12 digits';
+                    }
+                    return null;
+                  },
+                ),
+                ElevatedButton(
+                  onPressed: _aadhaarUploading
+                      ? null
+                      : () async {
+                          setState(() => _aadhaarUploading = true);
+                          final file = await _pickDocument();
+                          if (file != null) {
+                            _aadhaarFile = file;
+                            _aadhaarUploaded = true;
+                          }
+                          setState(() => _aadhaarUploading = false);
+                        },
+                  child: _aadhaarUploading
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          _aadhaarUploaded
+                              ? 'Aadhaar Uploaded ✅'
+                              : 'Upload Aadhaar Document',
+                        ),
+                ),
+              ],
+
               _field(
-                _aadhaarController,
-                'Aadhaar Number (12 digits)',
-                keyboard: TextInputType.number,
-                validator: (v) {
-                  if (v == null || v.isEmpty) {
-                    return 'Aadhaar is required';
-                  }
-                  if (!RegExp(r'^\d{12}$').hasMatch(v)) {
-                    return 'Aadhaar must be 12 digits';
-                  }
-                  return null;
-                },
-              ),
-              ElevatedButton(
-                onPressed: _aadhaarUploading
+                _gstinController,
+                _personal ? 'GSTIN (Optional)' : 'GSTIN',
+                validator: (v) => _personal
                     ? null
-                    : () async {
-                        setState(() => _aadhaarUploading = true);
-                        final file = await _pickDocument();
-                        if (file != null) {
-                          _aadhaarFile = file;
-                          _aadhaarUploaded = true;
-                        }
-                        setState(() => _aadhaarUploading = false);
-                      },
-                child: _aadhaarUploading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        _aadhaarUploaded
-                            ? 'Aadhaar Uploaded ✅'
-                            : 'Upload Aadhaar Document',
-                      ),
+                    : (v == null || v.trim().length < 15
+                        ? 'GSTIN is required for a registered business'
+                        : null),
               ),
-              _field(_gstinController, 'GSTIN (Optional)'),
+
+              if (!_personal)
+                _field(
+                  _registrationController,
+                  'Registration / CIN number (optional)',
+                ),
+
               ElevatedButton(
                 onPressed: _gstUploading
                     ? null
@@ -370,7 +382,11 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                         width: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(_gstUploaded ? 'GST Uploaded ✅' : 'Upload GST Document'),
+                    : Text(_gstUploaded
+                        ? 'Document Uploaded ✅'
+                        : (_personal
+                            ? 'Upload GST Document'
+                            : 'Upload GST / Incorporation Certificate')),
               ),
               const Divider(),
 
@@ -417,28 +433,19 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                 },
               ),
 
-              _dropdown(
-                label: 'State',
-                value: _state,
-                items: _states,
-                validator: (v) => v == null ? 'State is required' : null,
-                onChanged: (v) {
-                  setState(() {
-                    _state = v;
-                    _city = null;
-                  });
-                },
+              _field(
+                _stateController,
+                'State',
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'State is required' : null,
               ),
 
-              if (_state != null)
-                _dropdown(
-                  label: 'City',
-                  value: _city,
-                  items: _citiesByState[_state!]!,
-                  validator: (v) =>
-                      v == null ? 'City is required' : null,
-                  onChanged: (v) => setState(() => _city = v),
-                ),
+              _field(
+                _cityController,
+                'City',
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'City is required' : null,
+              ),
 
               _field(
                 _pincodeController,

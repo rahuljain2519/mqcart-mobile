@@ -47,8 +47,12 @@ class AdminSellerReviewScreen extends StatelessWidget {
 
                 _section('Identity'),
                 _row('PAN', app.panNumber),
-                _row('Aadhaar', app.aadhaarLast4),
+                if (app.aadhaarLast4.isNotEmpty)
+                  _row('Aadhaar (last 4)', app.aadhaarLast4),
                 _row('GSTIN', app.gstin ?? 'N/A'),
+                if (app.registrationNumber != null &&
+                    app.registrationNumber!.isNotEmpty)
+                  _row('Registration / CIN', app.registrationNumber!),
 
                 _section('Address'),
                 _row('Address', app.addressLine),

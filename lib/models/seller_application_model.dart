@@ -9,8 +9,9 @@ class SellerApplicationModel {
 
   // Identity & compliance
   final String panNumber;
-  final String aadhaarLast4; // 🔐 only last 4 digits
-  final String? gstin; // optional
+  final String aadhaarLast4; // 🔐 only last 4 digits (Individual / Proprietorship)
+  final String? gstin; // optional for individuals, required for companies
+  final String? registrationNumber; // CIN / LLPIN / firm reg. no. (companies)
 
   // Address
   final String addressLine;
@@ -34,8 +35,9 @@ class SellerApplicationModel {
     required this.description,
     required this.businessType,
     required this.panNumber,
-    required this.aadhaarLast4,
+    this.aadhaarLast4 = '',
     this.gstin,
+    this.registrationNumber,
     required this.addressLine,
     required this.city,
     required this.state,
@@ -57,6 +59,7 @@ class SellerApplicationModel {
       'panNumber': panNumber,
       'aadhaarLast4': aadhaarLast4,
       'gstin': gstin,
+      'registrationNumber': registrationNumber,
       'addressLine': addressLine,
       'city': city,
       'state': state,
@@ -78,8 +81,9 @@ class SellerApplicationModel {
       description: json['description'],
       businessType: json['businessType'],
       panNumber: json['panNumber'],
-      aadhaarLast4: json['aadhaarLast4'],
+      aadhaarLast4: json['aadhaarLast4'] ?? '',
       gstin: json['gstin'],
+      registrationNumber: json['registrationNumber'],
       addressLine: json['addressLine'],
       city: json['city'],
       state: json['state'],
