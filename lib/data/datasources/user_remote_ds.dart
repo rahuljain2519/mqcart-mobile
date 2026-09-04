@@ -136,6 +136,24 @@ class UserRemoteDS {
       )
       .toList();
 }
+
+  /// 🔄 STREAM USERS BY ROLE (ADMIN list auto-refresh)
+  Stream<List<UserModel>> streamUsersByRole(String role) {
+    return _firestore
+        .users()
+        .where('role', isEqualTo: role)
+        .snapshots()
+        .map(
+          (query) => query.docs
+              .map(
+                (doc) => UserModel.fromJson(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ),
+              )
+              .toList(),
+        );
+  }
   /* --------------------------------------------------
      ADMIN / INTERNAL USE
      -------------------------------------------------- */

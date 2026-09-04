@@ -84,6 +84,11 @@ class ShopRepository {
     return _remoteDS.getShopsForSociety(societyId);
   }
 
+  /// 🔄 Live stream of active shops for a society (auto-refresh)
+  Stream<List<ShopModel>> streamShopsForSociety(String societyId) {
+    return _remoteDS.streamShopsForSociety(societyId);
+  }
+
   /// ---------------------------------
   /// BUYER: GET SHOP BY ID
   /// ---------------------------------

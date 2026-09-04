@@ -51,8 +51,8 @@ class _MainShellState extends State<MainShell> {
 
     return PreferredSize(
       preferredSize: const Size.fromHeight(104),
-      child: FutureBuilder<UserModel?>(
-        future: userRepo.getCurrentUser(),
+      child: StreamBuilder<UserModel?>(
+        stream: userRepo.streamCurrentUser(),
         builder: (context, userSnap) {
           final user = userSnap.data;
 

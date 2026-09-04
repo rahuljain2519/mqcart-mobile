@@ -17,9 +17,9 @@ class AdminSellerReviewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Review Seller Application')),
-      body: FutureBuilder<SellerApplicationModel?>(
-        future: SellerApplicationRemoteDS()
-            .getMyApplication(user.uid),
+      body: StreamBuilder<SellerApplicationModel?>(
+        stream: SellerApplicationRemoteDS()
+            .streamMyApplication(user.uid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

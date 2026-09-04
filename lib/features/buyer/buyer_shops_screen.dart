@@ -123,9 +123,9 @@ class _BuyerShopsScreenState extends State<BuyerShopsScreen> {
 
                   final societyId = userSnapshot.data!.societyId;
 
-                  return FutureBuilder<List<ShopModel>>(
-                    future:
-                        shopRepository.getShopsForSociety(societyId),
+                  return StreamBuilder<List<ShopModel>>(
+                    stream:
+                        shopRepository.streamShopsForSociety(societyId),
                     builder: (context, shopSnapshot) {
                       if (shopSnapshot.connectionState ==
                           ConnectionState.waiting) {

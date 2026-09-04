@@ -19,10 +19,12 @@ class UserRepository {
     return _remoteDS.streamUser(uid);
   }
 
-  /// 🔹 Convenience: stream currently logged-in user
+  /// 🔹 Convenience: stream currently logged-in user.
+  /// Emits null for guests instead of throwing.
   Stream<UserModel?> streamCurrentUser() {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    return _remoteDS.streamUser(uid);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return Stream<UserModel?>.value(null);
+    return _remoteDS.streamUser(user.uid);
   }
 
   /// 🔹 Create user on first login
@@ -57,6 +59,11 @@ class UserRepository {
   /// 🔹 Get all approved sellers
   Future<List<UserModel>> getAllSellers() {
     return _remoteDS.getUsersByRole('seller');
+  }
+
+  /// 🔄 Live stream of all sellers (admin list auto-refresh)
+  Stream<List<UserModel>> streamAllSellers() {
+    return _remoteDS.streamUsersByRole('seller');
   }
 
   /// 🔹 Approve seller (FINAL FIX)

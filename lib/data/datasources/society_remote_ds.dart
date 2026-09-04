@@ -21,6 +21,24 @@ class SocietyRemoteDS {
         .toList();
   }
 
+  /// 🔄 Live stream of active societies (admin list auto-refresh)
+  Stream<List<SocietyModel>> streamSocieties() {
+    return _firestore
+        .societies()
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map(
+          (query) => query.docs
+              .map(
+                (doc) => SocietyModel.fromJson(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ),
+              )
+              .toList(),
+        );
+  }
+
   /// Create a new society (admin use)
   Future<void> createSociety(SocietyModel society) async {
     await _firestore.societies().add(society.toJson());

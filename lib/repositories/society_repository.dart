@@ -9,6 +9,11 @@ class SocietyRepository {
     return _remoteDS.getSocieties();
   }
 
+  /// 🔄 Live stream of active societies
+  Stream<List<SocietyModel>> streamActiveSocieties() {
+    return _remoteDS.streamSocieties();
+  }
+
   Future<void> createSociety(SocietyModel society) async {
   await _remoteDS.createSociety(society);
   }

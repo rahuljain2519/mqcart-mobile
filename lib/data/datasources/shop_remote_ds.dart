@@ -79,6 +79,25 @@ class ShopRemoteDS {
         .toList();
   }
 
+  /// 🔄 Buyer: live stream of ACTIVE shops for a society (auto-refresh)
+  Stream<List<ShopModel>> streamShopsForSociety(String societyId) {
+    return _firestore
+        .shops()
+        .where('societyId', isEqualTo: societyId)
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map(
+          (query) => query.docs
+              .map(
+                (doc) => ShopModel.fromJson(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ),
+              )
+              .toList(),
+        );
+  }
+
   /// Get shop by shopId (Buyer flow)
   Future<ShopModel?> getShopById(String shopId) async {
     final doc = await _firestore.shops().doc(shopId).get();

@@ -14,8 +14,8 @@ class AdminUsersScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Manage Sellers')),
-      body: FutureBuilder<List<UserModel>>(
-        future: userRepository.getAllSellers(),
+      body: StreamBuilder<List<UserModel>>(
+        stream: userRepository.streamAllSellers(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

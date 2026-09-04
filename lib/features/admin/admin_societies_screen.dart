@@ -28,8 +28,8 @@ class AdminSocietiesScreen extends StatelessWidget {
           )
         ],
       ),
-      body: FutureBuilder<List<SocietyModel>>(
-        future: societyRepository.getActiveSocieties(),
+      body: StreamBuilder<List<SocietyModel>>(
+        stream: societyRepository.streamActiveSocieties(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

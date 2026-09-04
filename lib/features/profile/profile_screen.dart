@@ -43,14 +43,14 @@ class ProfileScreen extends StatelessWidget {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: FutureBuilder<UserModel>(
-        future: userRepository.getUser(uid),
+      body: StreamBuilder<UserModel?>(
+        stream: userRepository.streamUser(uid),
         builder: (context, userSnap) {
           if (userSnap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!userSnap.hasData) {
+          if (!userSnap.hasData || userSnap.data == null) {
             return const Center(child: Text('Profile data not found'));
           }
 
