@@ -265,9 +265,20 @@ exports.notifySellerOnNewOrder = onDocumentCreated(
 
     const user = userSnap.data();
     if (user.role !== "seller") return;
-    if (!user.fcmToken) return;
 
-    const payload = {
+    // Collect every registered device: legacy single `fcmToken` (mobile today)
+    // plus the `fcmTokens` map { token: platform } used by web and newer mobile.
+    const tokens = new Set();
+    if (user.fcmToken) tokens.add(user.fcmToken);
+    if (user.fcmTokens && typeof user.fcmTokens === "object") {
+      Object.keys(user.fcmTokens).forEach((t) => t && tokens.add(t));
+    }
+    if (tokens.size === 0) return;
+
+    const tokenList = [...tokens];
+
+    const res = await admin.messaging().sendEachForMulticast({
+      tokens: tokenList,
       notification: {
         title: "🔔 New Order Received",
         body: `Order ${event.params.orderId} • ₹${order.totalAmount}`,
@@ -276,12 +287,31 @@ exports.notifySellerOnNewOrder = onDocumentCreated(
         type: "NEW_ORDER",
         orderId: event.params.orderId,
       },
-    };
+    });
 
-    await admin.messaging().sendToDevice(
-      user.fcmToken,
-      payload
-    );
+    // Prune tokens the FCM backend reports as permanently invalid.
+    const dead = [];
+    res.responses.forEach((r, i) => {
+      const code = r.error && r.error.code;
+      if (
+        !r.success &&
+        (code === "messaging/registration-token-not-registered" ||
+          code === "messaging/invalid-registration-token" ||
+          code === "messaging/invalid-argument")
+      ) {
+        dead.push(tokenList[i]);
+      }
+    });
+    if (dead.length) {
+      const upd = {};
+      dead.forEach((t) => {
+        upd[`fcmTokens.${t}`] = admin.firestore.FieldValue.delete();
+      });
+      if (dead.includes(user.fcmToken)) {
+        upd.fcmToken = admin.firestore.FieldValue.delete();
+      }
+      await userSnap.ref.update(upd).catch(() => {});
+    }
   }
 );
 

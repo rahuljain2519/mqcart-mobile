@@ -25,16 +25,24 @@ class PushNotificationService {
     final userRef =
         FirebaseFirestore.instance.collection('users').doc(user.uid);
 
-    // ✅ Store token in users collection
+    // ✅ Store token in users collection.
+    // `fcmToken` is the legacy single-device field; `fcmTokens` is a
+    // { token: platform } map so a seller can be reachable on app + web at once.
     await userRef.set(
-      {'fcmToken': token},
+      {
+        'fcmToken': token,
+        'fcmTokens': {token: 'android'},
+      },
       SetOptions(merge: true),
     );
 
     // 🔄 Token refresh
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       userRef.set(
-        {'fcmToken': newToken},
+        {
+          'fcmToken': newToken,
+          'fcmTokens': {newToken: 'android'},
+        },
         SetOptions(merge: true),
       );
     });
