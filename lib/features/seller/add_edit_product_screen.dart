@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../repositories/product_repository.dart';
 import '../../models/product_model.dart';
 import '../../core/storage/product_storage_service.dart';
+import '../../core/widgets/mq_network_image.dart';
 import '../../repositories/user_repository.dart';
 import '../../config/categories.dart';
 
@@ -153,7 +154,11 @@ class _AddEditProductScreenState
   // PICK IMAGES (MAX 4)
   // -------------------------------
   Future<void> _pickImages() async {
-    final images = await _picker.pickMultiImage();
+    final images = await _picker.pickMultiImage(
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 82,
+    );
 
     if (images.isEmpty) return;
 
@@ -624,8 +629,8 @@ class _AddEditProductScreenState
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                               )
-                            : Image.network(
-                                imagesToShow[index],
+                            : MQNetworkImage(
+                                url: imagesToShow[index],
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                               ),

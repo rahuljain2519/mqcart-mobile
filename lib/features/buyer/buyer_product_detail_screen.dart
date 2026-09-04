@@ -3,6 +3,7 @@ import 'package:collection/collection.dart';
 
 import '../../models/product_model.dart';
 import '../../services/cart_service.dart';
+import '../../core/widgets/mq_network_image.dart';
 import '../buyer/cart_screen.dart';
 
 class BuyerProductDetailScreen extends StatefulWidget {
@@ -68,23 +69,12 @@ class _BuyerProductDetailScreenState
 
                           return ClipRRect(
                             borderRadius: BorderRadius.circular(16),
-                            child: imageUrl.isNotEmpty
-                                ? Image.network(
-                                    imageUrl,
-                                    width: double.infinity,
-                                    height: 240,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    color: mqLightOrange,
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.image,
-                                        size: 60,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
+                            child: MQNetworkImage(
+                              url: imageUrl,
+                              width: double.infinity,
+                              height: 240,
+                              fit: BoxFit.cover,
+                            ),
                           );
                         },
                       ),

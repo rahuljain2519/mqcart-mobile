@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../models/shop_model.dart';
 import '../../repositories/shop_repository.dart';
+import '../../core/widgets/mq_network_image.dart';
 
 class EditShopScreen extends StatefulWidget {
   final ShopModel shop;
@@ -77,7 +78,12 @@ class _EditShopScreenState extends State<EditShopScreen> {
   // ----------------------------
 
   Future<void> _pickLogo() async {
-    final img = await _picker.pickImage(source: ImageSource.gallery);
+    final img = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 82,
+    );
     if (img == null) return;
 
     setState(() {
@@ -87,7 +93,12 @@ class _EditShopScreenState extends State<EditShopScreen> {
   }
 
   Future<void> _pickBanner() async {
-    final img = await _picker.pickImage(source: ImageSource.gallery);
+    final img = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 82,
+    );
     if (img == null) return;
 
     setState(() {
@@ -270,7 +281,11 @@ class _EditShopScreenState extends State<EditShopScreen> {
             if (_logoFile != null)
               Image.file(_logoFile!, height: 100)
             else if (widget.shop.logoUrl.isNotEmpty)
-              Image.network(widget.shop.logoUrl, height: 100),
+              MQNetworkImage(
+                url: widget.shop.logoUrl,
+                height: 100,
+                fit: BoxFit.contain,
+              ),
 
             TextButton(
               onPressed: _pickLogo,
@@ -293,9 +308,10 @@ class _EditShopScreenState extends State<EditShopScreen> {
                 fit: BoxFit.cover,
               )
             else if (widget.shop.bannerUrl.isNotEmpty)
-              Image.network(
-                widget.shop.bannerUrl,
+              MQNetworkImage(
+                url: widget.shop.bannerUrl,
                 height: 140,
+                width: double.infinity,
                 fit: BoxFit.cover,
               ),
 

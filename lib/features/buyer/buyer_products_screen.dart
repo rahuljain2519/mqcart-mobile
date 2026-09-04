@@ -5,6 +5,7 @@ import '../../models/shop_model.dart';
 import '../../models/product_model.dart';
 import '../../repositories/product_repository.dart';
 import '../../services/cart_service.dart';
+import '../../core/widgets/mq_network_image.dart';
 import 'cart_screen.dart';
 import 'buyer_product_detail_screen.dart';
 
@@ -80,8 +81,8 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
             ],
             flexibleSpace: FlexibleSpaceBar(
               background: widget.shop.bannerUrl.isNotEmpty
-                  ? Image.network(
-                      widget.shop.bannerUrl,
+                  ? MQNetworkImage(
+                      url: widget.shop.bannerUrl,
                       fit: BoxFit.cover,
                     )
                   : Container(
@@ -245,18 +246,12 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                                 child: ClipRRect(
                                   borderRadius:
                                       BorderRadius.circular(12),
-                                  child: product.coverImage.isNotEmpty
-                                      ? Image.network(
-                                          product.coverImage,
-                                          fit: BoxFit.cover,
-                                          width: double.infinity,
-                                        )
-                                      : Container(
-                                          color: mqLightOrange,
-                                          child: const Center(
-                                            child: Icon(Icons.image),
-                                          ),
-                                        ),
+                                  child: MQNetworkImage(
+                                    url: product.coverImage,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                  ),
                                 ),
                               ),
                             ),

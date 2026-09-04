@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/shop_model.dart';
 import '../../repositories/product_repository.dart';
 import '../../models/product_model.dart';
+import '../../core/widgets/mq_network_image.dart';
 import 'add_edit_product_screen.dart';
 import '../seller/bulk_upload/bulk_upload_screen.dart';
 
@@ -157,18 +158,12 @@ class SellerProductsScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   child: Row(
                     children: [
-                      ClipRRect(
+                      MQNetworkImage(
+                        url: imageUrl,
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.cover,
                         borderRadius: BorderRadius.circular(8),
-                        child: imageUrl.isNotEmpty
-                            ? Image.network(
-                                imageUrl,
-                                width: 64,
-                                height: 64,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    _imagePlaceholder(),
-                              )
-                            : _imagePlaceholder(),
                       ),
 
                       const SizedBox(width: 12),
@@ -309,18 +304,6 @@ class SellerProductsScreen extends StatelessWidget {
       const SnackBar(
         content: Text('Activate your shop to add products'),
         backgroundColor: Colors.red,
-      ),
-    );
-  }
-
-  Widget _imagePlaceholder() {
-    return Container(
-      width: 64,
-      height: 64,
-      color: Colors.grey.shade200,
-      child: const Icon(
-        Icons.image,
-        color: Colors.grey,
       ),
     );
   }

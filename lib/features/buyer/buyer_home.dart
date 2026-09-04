@@ -9,6 +9,7 @@ import '../../models/product_model.dart';
 import '../../models/user_model.dart';
 import '../../services/cart_service.dart';
 import '../../config/categories.dart';
+import '../../core/widgets/mq_network_image.dart';
 import 'category_scroller.dart';
 
 class BuyerHome extends StatefulWidget {
@@ -216,18 +217,12 @@ class _BuyerHomeState extends State<BuyerHome> {
                                               const BorderRadius.vertical(
                                             top: Radius.circular(16),
                                           ),
-                                          child: product.coverImage
-                                                  .isNotEmpty
-                                              ? Image.network(
-                                                  product.coverImage,
-                                                  fit: BoxFit.cover,
-                                                  width:
-                                                      double.infinity,
-                                                )
-                                              : const Icon(
-                                                  Icons.image,
-                                                  size: 48,
-                                                ),
+                                          child: MQNetworkImage(
+                                            url: product.coverImage,
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                          ),
                                         ),
                                       ),
                                       Padding(

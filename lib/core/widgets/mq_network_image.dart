@@ -28,11 +28,12 @@ class MQNetworkImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
-      memCacheWidth: 600,
-      memCacheHeight: 600,
+      // Cap decode width only — height stays proportional so banners and
+      // full-width images keep their aspect ratio.
+      memCacheWidth: 800,
       fadeInDuration: const Duration(milliseconds: 100),
-      placeholder: (_, __) => _placeholder(),
-      errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported),
+      placeholder: (_, _) => _placeholder(),
+      errorWidget: (_, _, _) => const Icon(Icons.image_not_supported),
     );
 
     if (borderRadius != null) {

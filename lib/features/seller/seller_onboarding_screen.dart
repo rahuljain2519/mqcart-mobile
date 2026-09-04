@@ -68,7 +68,12 @@ class _SellerOnboardingScreenState extends State<SellerOnboardingScreen> {
 
   Future<void> _pickLogo() async {
     final XFile? picked =
-        await _picker.pickImage(source: ImageSource.gallery);
+        await _picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 82,
+        );
 
     if (picked != null) {
       setState(() {
@@ -81,7 +86,12 @@ class _SellerOnboardingScreenState extends State<SellerOnboardingScreen> {
 
   Future<void> _pickBanner() async {
     final XFile? picked =
-        await _picker.pickImage(source: ImageSource.gallery);
+        await _picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 82,
+        );
 
     if (picked != null) {
       setState(() {

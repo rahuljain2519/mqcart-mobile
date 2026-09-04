@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import '../../services/cart_service.dart';
 import '../../models/cart_item_model.dart';
 import '../../models/product_model.dart';
+import '../../core/widgets/mq_network_image.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
@@ -133,16 +134,12 @@ class CartScreen extends StatelessWidget {
                           ),
                           child: Row(
                             children: [
-                              ClipRRect(
+                              MQNetworkImage(
+                                url: item.imageUrl,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.cover,
                                 borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  item.imageUrl,
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(Icons.image, size: 32),
-                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(

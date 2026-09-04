@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../models/shop_model.dart';
 import '../../models/product_model.dart';
+import '../../core/widgets/mq_network_image.dart';
 
 class SellerShopPreviewScreen extends StatefulWidget {
   final ShopModel shop;
@@ -47,13 +48,11 @@ class _SellerShopPreviewScreenState
           children: [
             // 🖼️ SHOP BANNER
             if (shop.bannerUrl.isNotEmpty)
-              SizedBox(
+              MQNetworkImage(
+                url: shop.bannerUrl,
                 height: 140,
                 width: double.infinity,
-                child: Image.network(
-                  shop.bannerUrl,
-                  fit: BoxFit.cover,
-                ),
+                fit: BoxFit.cover,
               ),
 
             // 🏪 SHOP HEADER
