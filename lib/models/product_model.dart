@@ -42,6 +42,13 @@ class ProductModel {
   final String? subcategory;
   final String description;
 
+  // 🆕 OPTIONAL STANDARD CATALOG FIELDS (simple/non-variant products only —
+  // variant products keep encoding size in each option's name, e.g. "500g").
+  final String? brand;
+  final double? unitValue; // e.g. 500
+  final String? unitType; // one of kUnitTypes, e.g. 'g'
+  final double? mrp; // strike-through price, shown only when mrp > price
+
   // ✅ IMAGES (FINAL)
   final List<String> images;
   final String coverImage;
@@ -78,6 +85,11 @@ class ProductModel {
     required this.coverImage,
     this.isActive = true,
 
+    this.brand,
+    this.unitValue,
+    this.unitType,
+    this.mrp,
+
     // 🆕 DELIVERY (OPTIONAL)
     this.deliveryMinMinutes,
     this.deliveryMaxMinutes,
@@ -91,6 +103,20 @@ class ProductModel {
   });
 
   bool get hasOptions => options.isNotEmpty;
+
+  bool get hasDiscount => mrp != null && mrp! > price;
+
+  int get discountPercent =>
+      hasDiscount ? (((mrp! - price) / mrp!) * 100).round() : 0;
+
+  /// e.g. "500 g", or null when no pack size is set.
+  String? get packSizeLabel {
+    if (unitValue == null || unitType == null) return null;
+    final v = unitValue!;
+    final formatted =
+        v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+    return '$formatted $unitType';
+  }
 
   /// Cheapest option price, or the plain price.
   double get displayPrice =>
@@ -144,6 +170,11 @@ class ProductModel {
       coverImage: coverImage,
       isActive: json['isActive'] ?? true,
 
+      brand: json['brand'],
+      unitValue: (json['unitValue'] as num?)?.toDouble(),
+      unitType: json['unitType'],
+      mrp: (json['mrp'] as num?)?.toDouble(),
+
       // 🆕 DELIVERY (BACKWARD SAFE)
       deliveryMinMinutes: json['deliveryMinMinutes'],
       deliveryMaxMinutes: json['deliveryMaxMinutes'],
@@ -179,6 +210,11 @@ class ProductModel {
       'coverImage': coverImage,
       'isActive': isActive,
 
+      if (brand != null) 'brand': brand,
+      if (unitValue != null) 'unitValue': unitValue,
+      if (unitType != null) 'unitType': unitType,
+      if (mrp != null) 'mrp': mrp,
+
       // 🆕 DELIVERY (ONLY IF OVERRIDE EXISTS)
       if (deliveryMinMinutes != null)
         'deliveryMinMinutes': deliveryMinMinutes,
@@ -211,6 +247,11 @@ class ProductModel {
     String? coverImage,
     bool? isActive,
 
+    String? brand,
+    double? unitValue,
+    String? unitType,
+    double? mrp,
+
     // 🆕 DELIVERY
     int? deliveryMinMinutes,
     int? deliveryMaxMinutes,
@@ -236,6 +277,11 @@ class ProductModel {
       images: images ?? this.images,
       coverImage: coverImage ?? this.coverImage,
       isActive: isActive ?? this.isActive,
+
+      brand: brand ?? this.brand,
+      unitValue: unitValue ?? this.unitValue,
+      unitType: unitType ?? this.unitType,
+      mrp: mrp ?? this.mrp,
 
       deliveryMinMinutes:
           deliveryMinMinutes ?? this.deliveryMinMinutes,

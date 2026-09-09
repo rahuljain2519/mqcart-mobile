@@ -242,13 +242,64 @@ class _BuyerHomeState extends State<BuyerHome> {
                                                     FontWeight.w600,
                                               ),
                                             ),
+                                            if (product.brand != null ||
+                                                product.packSizeLabel != null)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 2),
+                                                child: Text(
+                                                  [
+                                                    if (product.brand != null)
+                                                      product.brand!,
+                                                    if (product.packSizeLabel !=
+                                                        null)
+                                                      product.packSizeLabel!,
+                                                  ].join(' · '),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ),
                                             const SizedBox(height: 6),
                                             Row(
                                               mainAxisAlignment:
                                                   MainAxisAlignment
                                                       .spaceBetween,
                                               children: [
-                                                Text(
+                                                product.hasDiscount
+                                                    ? Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            '₹${product.price.toStringAsFixed(0)}',
+                                                            style: const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          Text(
+                                                            '₹${product.mrp!.toStringAsFixed(0)}',
+                                                            style: TextStyle(
+                                                              fontSize: 11,
+                                                              color: Colors
+                                                                  .grey
+                                                                  .shade500,
+                                                              decoration:
+                                                                  TextDecoration
+                                                                      .lineThrough,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      )
+                                                    : Text(
                                                   product.hasOptions
                                                       ? 'from ₹${product.displayPrice.toStringAsFixed(0)}'
                                                       : '₹${product.price}',

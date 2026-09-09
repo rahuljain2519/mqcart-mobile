@@ -123,10 +123,59 @@ class _BuyerProductDetailScreenState
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
 
+                if (product.brand != null || product.packSizeLabel != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      [
+                        if (product.brand != null) product.brand!,
+                        if (product.packSizeLabel != null)
+                          product.packSizeLabel!,
+                      ].join(' · '),
+                      style: const TextStyle(
+                          fontSize: 13, color: Colors.grey),
+                    ),
+                  ),
+
                 const SizedBox(height: 8),
 
                 /// 💰 PRICE
-                Text(
+                product.hasDiscount
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            '₹${shownPrice.toStringAsFixed(0)}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: mqOrange,
+                                ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '₹${product.mrp!.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${product.discountPercent}% off',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
                   canAct
                       ? '₹${shownPrice.toStringAsFixed(0)}'
                       : 'from ₹${product.displayPrice.toStringAsFixed(0)}',

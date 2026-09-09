@@ -35,6 +35,12 @@ class ProductRepository {
     String description = '',
     String imageUrl = '',
 
+    // 🆕 STANDARD CATALOG FIELDS
+    String? brand,
+    double? unitValue,
+    String? unitType,
+    double? mrp,
+
     // 🆕 DELIVERY (OPTIONAL OVERRIDE)
     String? deliveryUnit,
     int? deliveryMinValue,
@@ -58,6 +64,10 @@ class ProductRepository {
       quantity: quantity,
       category: category,
       subcategory: subcategory,
+      brand: brand,
+      unitValue: unitValue,
+      unitType: unitType,
+      mrp: mrp,
       description: description,
       images: images,
       coverImage: coverImage,

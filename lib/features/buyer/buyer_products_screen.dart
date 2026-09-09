@@ -6,8 +6,10 @@ import '../../models/product_model.dart';
 import '../../repositories/product_repository.dart';
 import '../../services/cart_service.dart';
 import '../../core/widgets/mq_network_image.dart';
+import '../../config/categories.dart';
 import 'cart_screen.dart';
 import 'buyer_product_detail_screen.dart';
+import 'category_scroller.dart';
 
 class BuyerProductsScreen extends StatefulWidget {
   final ShopModel shop;
@@ -27,6 +29,7 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
   static const Color mqLightOrange = Color(0xFFFFF3E8);
 
   String searchQuery = '';
+  String selectedCategory = 'All';
 
   @override
   Widget build(BuildContext context) {
@@ -160,6 +163,15 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
             ),
           ),
 
+          /// 🗂️ CATEGORY FILTER (SCROLLS)
+          SliverToBoxAdapter(
+            child: CategoryScroller(
+              selectedCategory: selectedCategory,
+              onCategorySelected: (c) =>
+                  setState(() => selectedCategory = c),
+            ),
+          ),
+
           const SliverToBoxAdapter(child: Divider()),
 
           /// 🛍️ PRODUCTS GRID (INLINE – UNCHANGED LOGIC)
@@ -174,9 +186,12 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
               }
 
               final products = snapshot.data!
-                  .where((p) => p.name
-                      .toLowerCase()
-                      .contains(searchQuery.toLowerCase()))
+                  .where((p) =>
+                      p.name
+                          .toLowerCase()
+                          .contains(searchQuery.toLowerCase()) &&
+                      (selectedCategory == 'All' ||
+                          normalizeCategory(p.category) == selectedCategory))
                   .toList();
 
               if (products.isEmpty) {
@@ -263,12 +278,50 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600),
                             ),
+                            if (product.brand != null ||
+                                product.packSizeLabel != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  [
+                                    if (product.brand != null) product.brand!,
+                                    if (product.packSizeLabel != null)
+                                      product.packSizeLabel!,
+                                  ].join(' · '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600),
+                                ),
+                              ),
                             const SizedBox(height: 4),
                             Row(
                               mainAxisAlignment:
                                   MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
+                                product.hasDiscount
+                                    ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '₹${product.price.toStringAsFixed(0)}',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '₹${product.mrp!.toStringAsFixed(0)}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade500,
+                                              decoration:
+                                                  TextDecoration.lineThrough,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Text(
                                   product.hasOptions
                                       ? 'from ₹${product.displayPrice.toStringAsFixed(0)}'
                                       : '₹${product.price}',

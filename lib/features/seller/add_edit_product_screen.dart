@@ -10,6 +10,8 @@ import '../../core/storage/product_storage_service.dart';
 import '../../core/widgets/mq_network_image.dart';
 import '../../repositories/user_repository.dart';
 import '../../config/categories.dart';
+import '../../config/units.dart';
+import '../../config/option_labels.dart';
 
 class AddEditProductScreen extends StatefulWidget {
   final String shopId;
@@ -44,8 +46,17 @@ class _AddEditProductScreenState
   final _categoryController = TextEditingController();
   final _descriptionController = TextEditingController();
 
+  // 🆕 STANDARD CATALOG FIELDS (brand applies regardless of variants; pack
+  // size + MRP only apply to simple/non-variant products)
+  final _brandController = TextEditingController();
+  final _unitValueController = TextEditingController();
+  String? _selectedUnitType;
+  final _mrpController = TextEditingController();
+
   // 🆕 VARIANT OPTIONS
   bool _hasOptions = false;
+  String? _selectedOptionLabel = kOptionLabels.first;
+  bool _customOptionLabel = false;
   final _optionLabelController = TextEditingController(text: 'Weight');
   List<_OptionRow> _optionRows = [];
 
@@ -111,6 +122,17 @@ class _AddEditProductScreenState
           widget.product!.category;
       _descriptionController.text =
           widget.product!.description;
+      _brandController.text = widget.product!.brand ?? '';
+      if (widget.product!.unitValue != null) {
+        final v = widget.product!.unitValue!;
+        _unitValueController.text =
+            v % 1 == 0 ? v.toStringAsFixed(0) : v.toString();
+      }
+      _selectedUnitType = widget.product!.unitType != null &&
+              kUnitTypes.contains(widget.product!.unitType)
+          ? widget.product!.unitType
+          : null;
+      _mrpController.text = widget.product!.mrp?.toString() ?? '';
 
       // Normalise legacy values ("Groceries", "Clothing"…) to the canonical
       // list so the dropdown has a matching item; unknown -> null.
@@ -147,8 +169,13 @@ class _AddEditProductScreenState
       // 🆕 LOAD VARIANT OPTIONS IF EXIST
       if (widget.product!.hasOptions) {
         _hasOptions = true;
-        _optionLabelController.text =
-            widget.product!.optionLabel ?? 'Option';
+        final storedLabel = widget.product!.optionLabel ?? 'Option';
+        if (kOptionLabels.contains(storedLabel)) {
+          _selectedOptionLabel = storedLabel;
+        } else {
+          _customOptionLabel = true;
+          _optionLabelController.text = storedLabel;
+        }
         _optionRows = widget.product!.options
             .map((o) => _OptionRow(
                   name: o.name,
@@ -290,6 +317,25 @@ class _AddEditProductScreenState
       }
     }
 
+    // Brand applies regardless of variants; pack size + MRP only apply to
+    // simple (non-variant) products.
+    final brand =
+        _brandController.text.trim().isEmpty ? null : _brandController.text.trim();
+    double? unitValue;
+    String? unitType;
+    double? mrp;
+    if (!_hasOptions) {
+      unitValue = double.tryParse(_unitValueController.text);
+      unitType = unitValue != null ? _selectedUnitType : null;
+      mrp = double.tryParse(_mrpController.text);
+    }
+
+    final resolvedOptionLabel = _customOptionLabel
+        ? (_optionLabelController.text.trim().isEmpty
+            ? 'Option'
+            : _optionLabelController.text.trim())
+        : (_selectedOptionLabel ?? 'Option');
+
     int? minVal;
     int? maxVal;
 
@@ -353,6 +399,10 @@ class _AddEditProductScreenState
         quantity: quantity,
         category: _categoryController.text.trim(),
         subcategory: _selectedSubcategory,
+        brand: brand,
+        unitValue: unitValue,
+        unitType: unitType,
+        mrp: mrp,
         description:
             _descriptionController.text.trim(),
         images: imagesToSave,
@@ -366,11 +416,7 @@ class _AddEditProductScreenState
         deliveryMaxMinutes: _overrideDelivery
             ? _toMinutes(maxVal!, _deliveryUnit)
             : null,
-        optionLabel: _hasOptions
-            ? (_optionLabelController.text.trim().isEmpty
-                ? 'Option'
-                : _optionLabelController.text.trim())
-            : null,
+        optionLabel: _hasOptions ? resolvedOptionLabel : null,
         options: options,
       );
     } else {
@@ -380,6 +426,10 @@ class _AddEditProductScreenState
         quantity: quantity,
         category: _categoryController.text.trim(),
         subcategory: _selectedSubcategory,
+        brand: brand,
+        unitValue: unitValue,
+        unitType: unitType,
+        mrp: mrp,
         description:
             _descriptionController.text.trim(),
         images: imagesToSave,
@@ -436,6 +486,12 @@ class _AddEditProductScreenState
                       labelText: 'Product Name'),
             ),
 
+            TextField(
+              controller: _brandController,
+              decoration:
+                  const InputDecoration(labelText: 'Brand (optional)'),
+            ),
+
             DropdownButtonFormField<String>(
               value: _selectedCategory,
               decoration:
@@ -484,10 +540,42 @@ class _AddEditProductScreenState
                 keyboardType: TextInputType.number,
               ),
               TextField(
+                controller: _mrpController,
+                decoration: const InputDecoration(
+                    labelText: 'MRP (optional, for a strike-through price)'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
                 controller: _quantityController,
                 decoration: const InputDecoration(
                     labelText: 'Available Quantity'),
                 keyboardType: TextInputType.number,
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _unitValueController,
+                      decoration: const InputDecoration(
+                          labelText: 'Pack size (optional)', hintText: '500'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedUnitType,
+                      decoration: const InputDecoration(labelText: 'Unit'),
+                      items: kUnitTypes
+                          .map((u) =>
+                              DropdownMenuItem(value: u, child: Text(u)))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() => _selectedUnitType = value);
+                      },
+                    ),
+                  ),
+                ],
               ),
             ],
 
@@ -515,11 +603,33 @@ class _AddEditProductScreenState
             ),
 
             if (_hasOptions) ...[
-              TextField(
-                controller: _optionLabelController,
-                decoration: const InputDecoration(
-                    labelText: 'Option type (Weight / Size / Colour)'),
+              DropdownButtonFormField<String>(
+                value: _customOptionLabel ? '__custom__' : _selectedOptionLabel,
+                decoration: const InputDecoration(labelText: 'Option type'),
+                items: [
+                  ...kOptionLabels.map(
+                    (l) => DropdownMenuItem(value: l, child: Text(l)),
+                  ),
+                  const DropdownMenuItem(
+                      value: '__custom__', child: Text('Custom…')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    if (value == '__custom__') {
+                      _customOptionLabel = true;
+                    } else {
+                      _customOptionLabel = false;
+                      _selectedOptionLabel = value;
+                    }
+                  });
+                },
               ),
+              if (_customOptionLabel)
+                TextField(
+                  controller: _optionLabelController,
+                  decoration:
+                      const InputDecoration(labelText: 'Custom option type'),
+                ),
               const SizedBox(height: 8),
               ..._optionRows.asMap().entries.map((e) {
                 final i = e.key;
