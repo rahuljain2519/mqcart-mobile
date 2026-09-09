@@ -39,6 +39,7 @@ class ProductModel {
   final double price;
   final int quantity;
   final String category;
+  final String? subcategory;
   final String description;
 
   // ✅ IMAGES (FINAL)
@@ -71,6 +72,7 @@ class ProductModel {
     required this.price,
     required this.quantity,
     required this.category,
+    this.subcategory,
     required this.description,
     required this.images,
     required this.coverImage,
@@ -136,6 +138,7 @@ class ProductModel {
       price: (json['price'] as num).toDouble(),
       quantity: json['quantity'] ?? 0,
       category: json['category'] ?? '',
+      subcategory: json['subcategory'],
       description: json['description'] ?? '',
       images: images,
       coverImage: coverImage,
@@ -170,6 +173,7 @@ class ProductModel {
       'price': price,
       'quantity': quantity,
       'category': category,
+      if (subcategory != null) 'subcategory': subcategory,
       'description': description,
       'images': images,
       'coverImage': coverImage,
@@ -201,6 +205,7 @@ class ProductModel {
     double? price,
     int? quantity,
     String? category,
+    String? subcategory,
     String? description,
     List<String>? images,
     String? coverImage,
@@ -226,6 +231,7 @@ class ProductModel {
       price: price ?? this.price,
       quantity: quantity ?? this.quantity,
       category: category ?? this.category,
+      subcategory: subcategory ?? this.subcategory,
       description: description ?? this.description,
       images: images ?? this.images,
       coverImage: coverImage ?? this.coverImage,

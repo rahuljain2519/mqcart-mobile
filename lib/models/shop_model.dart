@@ -4,6 +4,10 @@ class ShopModel {
   final String societyId;
   final String shopName;
 
+  // Copied from the seller's application at shop-creation time. Nullable —
+  // older shops predate this field.
+  final String? category;
+
   final String description;
   final String logoUrl;
   final String bannerUrl;
@@ -33,6 +37,7 @@ class ShopModel {
     required this.societyId,
     required this.shopName,
 
+    this.category,
     this.description = '',
     this.logoUrl = '',
     this.bannerUrl = '',
@@ -63,6 +68,7 @@ class ShopModel {
       societyId: json['societyId'],
       shopName: json['shopName'],
 
+      category: json['category'],
       description: json['description'] ?? '',
       logoUrl: json['logoUrl'] ?? '',
       bannerUrl: json['bannerUrl'] ?? '',
@@ -93,6 +99,7 @@ class ShopModel {
       'sellerId': sellerId,
       'societyId': societyId,
       'shopName': shopName,
+      if (category != null) 'category': category,
       'description': description,
       'logoUrl': logoUrl,
       'bannerUrl': bannerUrl,
@@ -118,6 +125,7 @@ class ShopModel {
 
   ShopModel copyWith({
     String? shopName,
+    String? category,
     String? description,
     String? logoUrl,
     String? bannerUrl,
@@ -143,6 +151,7 @@ class ShopModel {
       sellerId: sellerId,
       societyId: societyId,
       shopName: shopName ?? this.shopName,
+      category: category ?? this.category,
       description: description ?? this.description,
       logoUrl: logoUrl ?? this.logoUrl,
       bannerUrl: bannerUrl ?? this.bannerUrl,

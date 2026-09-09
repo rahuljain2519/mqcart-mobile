@@ -31,6 +31,7 @@ class ProductRepository {
     // EXISTING OPTIONAL
     int quantity = 0,
     String category = '',
+    String? subcategory,
     String description = '',
     String imageUrl = '',
 
@@ -56,6 +57,7 @@ class ProductRepository {
 
       quantity: quantity,
       category: category,
+      subcategory: subcategory,
       description: description,
       images: images,
       coverImage: coverImage,

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../repositories/shop_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../models/shop_model.dart';
+import '../../data/datasources/seller_application_remote_ds.dart';
 
 class SellerOnboardingScreen extends StatefulWidget {
   const SellerOnboardingScreen({super.key});
@@ -162,11 +163,17 @@ class _SellerOnboardingScreenState extends State<SellerOnboardingScreen> {
         throw Exception('Seller not approved');
       }
 
+      // Category was captured once at application time; copy it onto the
+      // shop so shops can eventually be browsed/filtered by category too.
+      final application =
+          await SellerApplicationRemoteDS().getMyApplication(uid);
+
       // 1️⃣ Create shop
       final String shopId = await _shopRepository.createShop(
         sellerId: uid,
         societyId: user.societyId,
         shopName: _shopNameController.text.trim(),
+        category: application?.category,
       );
 
       // 2️⃣ Upload logo

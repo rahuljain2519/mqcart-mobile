@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../config/categories.dart';
+
 class CategoryScroller extends StatelessWidget {
   final String selectedCategory;
   final ValueChanged<String> onCategorySelected;
@@ -16,17 +18,14 @@ class CategoryScroller extends StatelessWidget {
   /// 🔑 IMPORTANT:
   /// - 'All' is UI-only
   /// - Other names MUST match product.category
-  static const List<Map<String, String>> categories = [
-    {'name': 'All', 'image': 'assets/images/categories/all.png'},
-    {'name': 'Grocery', 'image': 'assets/images/categories/grocery.png'},
-    {'name': 'Bakery', 'image': 'assets/images/categories/bakery.png'},
-    {'name': 'Snacks', 'image': 'assets/images/categories/snacks.png'},
-    {'name': 'Personal Care', 'image': 'assets/images/categories/personal_care.png'},
-    {'name': 'Home & Utility', 'image': 'assets/images/categories/home_utility.png'},
-    {'name': 'Stationery', 'image': 'assets/images/categories/stationery.png'},
-    {'name': 'Fashion', 'image': 'assets/images/categories/fashion.png'},
-    {'name': 'Food', 'image': 'assets/images/categories/food.png'},
-    {'name': 'Art & Decor', 'image': 'assets/images/categories/art_decor.png'},
+  /// Built from the shared [kProductCategories] source of truth (mirrored in
+  /// the web app) so this chip row can never drift from it again. 'Other' is
+  /// excluded from chips, same as the web buyer feed.
+  static final List<Map<String, String>> categories = [
+    {'name': 'All', 'image': kCategoryIconAsset['All']!},
+    ...kProductCategories.where((c) => c != 'Other').map(
+          (c) => {'name': c, 'image': kCategoryIconAsset[c]!},
+        ),
   ];
 
   @override

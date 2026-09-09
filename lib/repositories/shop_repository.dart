@@ -23,12 +23,14 @@ class ShopRepository {
     required String sellerId,
     required String societyId,
     required String shopName,
+    String? category,
   }) async {
     final shop = ShopModel(
       shopId: '', // Firestore will generate ID
       sellerId: sellerId,
       societyId: societyId,
       shopName: shopName,
+      category: category,
 
       // safe defaults
       description: '',

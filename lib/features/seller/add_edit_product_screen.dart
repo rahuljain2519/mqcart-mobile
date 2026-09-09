@@ -84,6 +84,7 @@ class _AddEditProductScreenState
   final List<String> _categories = kProductCategories;
 
   String? _selectedCategory;
+  String? _selectedSubcategory;
 
   // -------------------------------
   // IMAGE STATE
@@ -115,6 +116,15 @@ class _AddEditProductScreenState
       // list so the dropdown has a matching item; unknown -> null.
       final norm = normalizeCategory(widget.product!.category);
       _selectedCategory = _categories.contains(norm) ? norm : null;
+
+      // Fall back to unset if the stored subcategory doesn't match the
+      // current list for this category (e.g. taxonomy changed since save).
+      if (_selectedCategory != null &&
+          widget.product!.subcategory != null &&
+          subcategoriesFor(_selectedCategory!)
+              .contains(widget.product!.subcategory)) {
+        _selectedSubcategory = widget.product!.subcategory;
+      }
 
       _existingImages = List.from(widget.product!.images);
 
@@ -342,6 +352,7 @@ class _AddEditProductScreenState
         price: price,
         quantity: quantity,
         category: _categoryController.text.trim(),
+        subcategory: _selectedSubcategory,
         description:
             _descriptionController.text.trim(),
         images: imagesToSave,
@@ -368,6 +379,7 @@ class _AddEditProductScreenState
         price: price,
         quantity: quantity,
         category: _categoryController.text.trim(),
+        subcategory: _selectedSubcategory,
         description:
             _descriptionController.text.trim(),
         images: imagesToSave,
@@ -439,9 +451,30 @@ class _AddEditProductScreenState
               onChanged: (value) {
                 setState(() {
                   _selectedCategory = value;
+                  _selectedSubcategory = null;
                 });
               },
             ),
+
+            if (_selectedCategory != null)
+              DropdownButtonFormField<String>(
+                value: _selectedSubcategory,
+                decoration:
+                    const InputDecoration(labelText: 'Subcategory (optional)'),
+                items: subcategoriesFor(_selectedCategory!)
+                    .map(
+                      (c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(c),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedSubcategory = value;
+                  });
+                },
+              ),
 
             if (!_hasOptions) ...[
               TextField(
