@@ -44,8 +44,12 @@ class BulkUploadService {
     final total = rows.length;
 
     for (final row in rows) {
-      final productId =
-          DateTime.now().millisecondsSinceEpoch.toString();
+      // Real Firestore auto-id, generated client-side up front so it's
+      // usable for the image-upload path before the doc write happens —
+      // same effective behaviour as single-product add's `.add()`, unlike
+      // the collision-prone timestamp string this used to be.
+      final ref = _firestore.collection('products').doc();
+      final productId = ref.id;
 
       // -----------------------
       // UPLOAD IMAGES
@@ -97,6 +101,11 @@ class BulkUploadService {
         price: row.price,
         quantity: row.quantity,
         category: row.category,
+        subcategory: row.subcategory,
+        brand: row.brand,
+        unitValue: row.unitValue,
+        unitType: row.unitType,
+        mrp: row.mrp,
         description: row.description,
         images: imageUrls,
         coverImage: coverImage,
@@ -125,8 +134,6 @@ class BulkUploadService {
       // -----------------------
       // BATCH SAVE
       // -----------------------
-      final ref =
-          _firestore.collection('products').doc(productId);
       batch.set(ref, product.toJson());
 
       completed++;

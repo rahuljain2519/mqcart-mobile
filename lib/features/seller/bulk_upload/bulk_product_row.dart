@@ -15,6 +15,13 @@ class BulkProductRow {
   // 🆕 COVER IMAGE
   final int coverIndex;
 
+  // 🆕 OPTIONAL STANDARD CATALOG FIELDS (see product_model.dart)
+  final String? subcategory;
+  final String? brand;
+  final double? unitValue;
+  final String? unitType;
+  final double? mrp;
+
   BulkProductRow({
     required this.name,
     required this.price,
@@ -27,5 +34,10 @@ class BulkProductRow {
     this.deliveryMin,
     this.deliveryMax,
     this.coverIndex = 0,
+    this.subcategory,
+    this.brand,
+    this.unitValue,
+    this.unitType,
+    this.mrp,
   });
 }

@@ -133,6 +133,23 @@ class _BulkUploadScreenState extends State<BulkUploadScreen> {
             coverIndex: row.length > 10 && clean(row[10]).isNotEmpty
                 ? int.parse(clean(row[10]))
                 : 0,
+
+            // OPTIONAL STANDARD CATALOG FIELDS
+            subcategory: row.length > 11 && clean(row[11]).isNotEmpty
+                ? clean(row[11])
+                : null,
+            brand: row.length > 12 && clean(row[12]).isNotEmpty
+                ? clean(row[12])
+                : null,
+            unitValue: row.length > 13 && clean(row[13]).isNotEmpty
+                ? double.parse(clean(row[13]))
+                : null,
+            unitType: row.length > 14 && clean(row[14]).isNotEmpty
+                ? clean(row[14])
+                : null,
+            mrp: row.length > 15 && clean(row[15]).isNotEmpty
+                ? double.parse(clean(row[15]))
+                : null,
           ),
         );
       } catch (_) {
