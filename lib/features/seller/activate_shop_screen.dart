@@ -149,7 +149,7 @@ class _ActivateShopScreenState extends State<ActivateShopScreen> {
           ),
           body: _plans == null
               ? const Center(child: CircularProgressIndicator())
-              : Padding(
+              : SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +176,7 @@ class _ActivateShopScreenState extends State<ActivateShopScreen> {
 
                       _planCard('elite', currentPlan),
 
-                      const Spacer(),
+                      const SizedBox(height: 24),
 
                       if (_waitingForConfirmation)
                         const Padding(

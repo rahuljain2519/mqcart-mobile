@@ -66,12 +66,13 @@ class UserRepository {
     return _remoteDS.streamUsersByRole('seller');
   }
 
-  /// 🔹 Approve seller (FINAL FIX)
+  /// 🔹 Approve seller
   Future<void> approveSeller(String uid) async {
-    // 1️⃣ Update USER → ACTIVE SELLER
+    // 1️⃣ Update USER → APPROVED (SellerOnboardingScreen gates shop
+    // creation on this exact status, then flips it to 'active' itself).
     await _remoteDS.updateUserFields(uid, {
       'role': 'seller',
-      'sellerStatus': 'active',
+      'sellerStatus': 'approved',
       'shopId': null,
       'approvedAt': DateTime.now(),
       'updatedAt': DateTime.now(),

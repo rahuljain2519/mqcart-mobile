@@ -219,9 +219,10 @@ class _SellerOnboardingScreenState extends State<SellerOnboardingScreen> {
 
       await _shopRepository.updateShop(updatedShop);
 
-      // 5️⃣ Link shop to user
+      // 5️⃣ Link shop to user, seller is now fully active
       await _userRepository.updateUserFields(uid, {
         'shopId': shopId,
+        'sellerStatus': 'active',
       });
 
       if (!mounted) return;
