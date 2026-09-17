@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import '../../models/product_model.dart';
 import '../../services/cart_service.dart';
 import '../../core/widgets/mq_network_image.dart';
+import '../../core/widgets/clear_cart_dialog.dart';
 import '../buyer/cart_screen.dart';
 
 class BuyerProductDetailScreen extends StatefulWidget {
@@ -290,7 +291,7 @@ class _BuyerProductDetailScreenState
                                   BorderRadius.circular(14),
                             ),
                           ),
-                          onPressed: () {
+                          onPressed: () async {
                             final result = cartService.addProduct(
                               product,
                               optionName: _selectedOption,
@@ -299,14 +300,15 @@ class _BuyerProductDetailScreenState
                             if (result ==
                                 AddProductResult
                                     .multiSellerNotAllowed) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'You can order from only one seller at a time',
-                                  ),
-                                ),
-                              );
+                              final cleared =
+                                  await showClearCartDialog(context);
+                              if (cleared) {
+                                cartService.clearCart();
+                                cartService.addProduct(
+                                  product,
+                                  optionName: _selectedOption,
+                                );
+                              }
                             }
                           },
                         ),

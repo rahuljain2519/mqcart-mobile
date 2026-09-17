@@ -6,6 +6,7 @@ import '../../models/product_model.dart';
 import '../../repositories/product_repository.dart';
 import '../../services/cart_service.dart';
 import '../../core/widgets/mq_network_image.dart';
+import '../../core/widgets/clear_cart_dialog.dart';
 import '../../config/categories.dart';
 import 'cart_screen.dart';
 import 'buyer_product_detail_screen.dart';
@@ -338,7 +339,7 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                                         ),
                                         onPressed: outOfStock
                                             ? null
-                                            : () {
+                                            : () async {
                                                 if (product.hasOptions) {
                                                   Navigator.push(
                                                     context,
@@ -357,15 +358,14 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                                                 if (result ==
                                                     AddProductResult
                                                         .multiSellerNotAllowed) {
-                                                  ScaffoldMessenger.of(
-                                                          context)
-                                                      .showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                        'You can order from only one seller at a time',
-                                                      ),
-                                                    ),
-                                                  );
+                                                  final cleared =
+                                                      await showClearCartDialog(
+                                                          context);
+                                                  if (cleared) {
+                                                    cartService.clearCart();
+                                                    cartService
+                                                        .addProduct(product);
+                                                  }
                                                 }
                                               },
                                         child: Text(product.hasOptions
