@@ -435,7 +435,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             if (_waitingForPayment) ...[
               const SizedBox(height: 12),
               const Text(
-                'Payment received — placing your order…',
+                'Complete the payment in the popup — we\'ll place your order once it\'s confirmed…',
                 style: TextStyle(color: Colors.green),
               ),
             ],
