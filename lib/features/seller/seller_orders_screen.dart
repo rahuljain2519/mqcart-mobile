@@ -206,6 +206,12 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
                                 Uri.parse('tel:${buyer.phone}');
                             if (await canLaunchUrl(uri)) {
                               await launchUrl(uri);
+                            } else if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content:
+                                        Text('Buyer phone: ${buyer.phone}')),
+                              );
                             }
                           },
                         ),

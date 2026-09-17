@@ -167,6 +167,13 @@ class _BuyerHomeState extends State<BuyerHome> {
                             itemBuilder: (context, index) {
                               final product = products[index];
 
+                              // Rebuilds on every cart change (add/increase/
+                              // decrease), not just when the product stream
+                              // re-emits — otherwise tapping ADD doesn't
+                              // visibly update this tile.
+                              return ValueListenableBuilder<int>(
+                                valueListenable: cartService.cartRevision,
+                                builder: (context, revision, _) {
                               // Variant products always route to the detail
                               // page (buyer must pick an option there).
                               final qty = (product.hasOptions ||
@@ -396,6 +403,8 @@ class _BuyerHomeState extends State<BuyerHome> {
                                     ],
                                   ),
                                 ),
+                              );
+                                },
                               );
                             },
                           ),

@@ -217,6 +217,12 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                     (context, index) {
                       final product = products[index];
 
+                      // Rebuilds on every cart change (add/increase/decrease),
+                      // not just when the product stream re-emits — otherwise
+                      // tapping ADD doesn't visibly update this tile.
+                      return ValueListenableBuilder<int>(
+                        valueListenable: cartService.cartRevision,
+                        builder: (context, revision, _) {
                       final cartItem = cartService.items
                           .firstWhereOrNull((e) =>
                               e.productId == product.id &&
@@ -412,6 +418,8 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                             ),
                           ],
                         ),
+                      );
+                        },
                       );
                     },
                     childCount: products.length,

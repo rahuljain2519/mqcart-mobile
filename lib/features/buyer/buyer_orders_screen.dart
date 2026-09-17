@@ -54,15 +54,15 @@ class BuyerOrdersScreen extends StatelessWidget {
             children: [
               if (activeOrders.isNotEmpty) ...[
                 _sectionTitle('ACTIVE ORDERS'),
-                ...activeOrders.map(_buildOrderCard),
+                ...activeOrders.map((o) => _buildOrderCard(context, o)),
               ],
               if (deliveredOrders.isNotEmpty) ...[
                 _sectionTitle('DELIVERED'),
-                ...deliveredOrders.map(_buildOrderCard),
+                ...deliveredOrders.map((o) => _buildOrderCard(context, o)),
               ],
               if (rejectedOrders.isNotEmpty) ...[
                 _sectionTitle('REJECTED'),
-                ...rejectedOrders.map(_buildOrderCard),
+                ...rejectedOrders.map((o) => _buildOrderCard(context, o)),
               ],
             ],
           );
@@ -91,7 +91,7 @@ class BuyerOrdersScreen extends StatelessWidget {
   // ---------------------------
   // ORDER CARD
   // ---------------------------
-  Widget _buildOrderCard(OrderModel order) {
+  Widget _buildOrderCard(BuildContext context, OrderModel order) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -221,6 +221,10 @@ class BuyerOrdersScreen extends StatelessWidget {
                   final uri = Uri.parse('tel:${order.shopPhone}');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri);
+                  } else if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Store phone: ${order.shopPhone}')),
+                    );
                   }
                 },
               ),
