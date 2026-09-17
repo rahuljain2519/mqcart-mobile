@@ -3,6 +3,11 @@
     <!-- ✅ REQUIRED PERMISSIONS (ONLY ADDITION) -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Required on Android 13+ (API 33) for any notification to show at
+         all — without this declared, FirebaseMessaging's requestPermission()
+         has nothing to request and new-order pushes are silently dropped
+         by the OS even though FCM delivers them to the device. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
         android:label="mqcart"
