@@ -157,7 +157,7 @@ class _BuyerShopsScreenState extends State<BuyerShopsScreen> {
                           crossAxisCount: 2,
                           mainAxisSpacing: 12,
                           crossAxisSpacing: 12,
-                          childAspectRatio: 0.85,
+                          childAspectRatio: 0.72,
                         ),
                         itemBuilder: (context, index) {
                           final shop = shops[index];
@@ -192,20 +192,20 @@ class _BuyerShopsScreenState extends State<BuyerShopsScreen> {
                                     MainAxisAlignment.center,
                                 children: [
                                   CircleAvatar(
-                                    radius: 58, // ⬆ BIGGER image (76px)
+                                    radius: 40,
                                     backgroundColor: Colors.white,
                                     child: CircleAvatar(
-                                      radius: 60,
+                                      radius: 38,
                                       backgroundColor: mqLightOrange,
                                       backgroundImage: shop.logoUrl.isNotEmpty
                                           ? NetworkImage(shop.logoUrl)
                                           : null,
                                       child: shop.logoUrl.isEmpty
-                                          ? Icon(Icons.store, size: 28, color: mqOrange)
+                                          ? Icon(Icons.store, size: 26, color: mqOrange)
                                           : null,
                                     ),
                                   ),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 8),
                                   Text(
                                     shop.shopName,
                                     maxLines: 2,
