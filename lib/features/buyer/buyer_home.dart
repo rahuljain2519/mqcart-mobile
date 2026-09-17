@@ -12,6 +12,7 @@ import '../../config/categories.dart';
 import '../../core/widgets/mq_network_image.dart';
 import '../../core/widgets/clear_cart_dialog.dart';
 import 'category_scroller.dart';
+import '../seller/seller_application_screen.dart';
 
 class BuyerHome extends StatefulWidget {
   const BuyerHome({super.key});
@@ -98,6 +99,64 @@ class _BuyerHomeState extends State<BuyerHome> {
             ),
 
             const SizedBox(height: 8),
+
+            /// 🏪 BECOME A SELLER BANNER (buyers only, hidden once applied)
+            FutureBuilder<UserModel?>(
+              future: userRepo.getCurrentUser(),
+              builder: (context, sellCtaSnap) {
+                final ctaUser = sellCtaSnap.data;
+                if (ctaUser == null ||
+                    ctaUser.role != 'buyer' ||
+                    ctaUser.sellerStatus != 'none') {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SellerApplicationScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: mqLightOrange,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Become a seller',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  'Sell to your society from your own shop.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward, color: mqOrange),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
 
             Expanded(
               child: FutureBuilder<UserModel?>(
