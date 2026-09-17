@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../services/cart_service.dart';
+import '../../services/buyer_payment_service.dart';
 import '../../repositories/order_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../repositories/product_repository.dart';
@@ -27,6 +31,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final UserRepository userRepository = UserRepository();
   final SocietyRepository societyRepository = SocietyRepository();
   final ShopRepository shopRepository = ShopRepository();
+  final BuyerPaymentService _buyerPaymentService = BuyerPaymentService();
 
   static const Color mqOrange = Color(0xFFFF6A00);
 
@@ -39,11 +44,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   String _paymentMethod = 'cod';
 
+  // 🆕 ONLINE PAYMENT WAIT STATE
+  bool _waitingForPayment = false;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _orderSub;
+
   @override
   void initState() {
     super.initState();
     _loadDeliveryAddress();
     _loadDeliveryTime();
+    _buyerPaymentService.init();
+  }
+
+  @override
+  void dispose() {
+    _orderSub?.cancel();
+    _buyerPaymentService.dispose();
+    super.dispose();
   }
 
   Future<void> _loadDeliveryAddress() async {
@@ -116,6 +133,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    if (_paymentMethod == 'upi') {
+      await _startOnlinePayment();
+      return;
+    }
+
     setState(() => _loading = true);
 
     try {
@@ -180,6 +202,96 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  /* --------------------------------------------------
+     ONLINE PAYMENT (UPI via Razorpay)
+     Doesn't reduce stock or create the order here — the
+     razorpayWebhook does both, only once payment is actually
+     captured. This method just starts the payment and waits.
+     -------------------------------------------------- */
+  Future<void> _startOnlinePayment() async {
+    setState(() => _loading = true);
+
+    try {
+      final buyerId = FirebaseAuth.instance.currentUser!.uid;
+      final user = await userRepository.getUser(buyerId);
+
+      final items = cartService.items.map((item) {
+        return {
+          'productId': item.productId,
+          'name': item.name,
+          'price': item.price,
+          'quantity': item.quantity,
+          if (item.optionName != null) 'optionName': item.optionName,
+        };
+      }).toList();
+
+      // Pre-generate the order id so the webhook can write to a known
+      // doc and this screen can watch for it to appear.
+      final orderId =
+          FirebaseFirestore.instance.collection('orders').doc().id;
+
+      await _buyerPaymentService.startBuyerOrderPayment(
+        orderId: orderId,
+        buyerId: buyerId,
+        sellerId: cartService.items.first.sellerId,
+        shopId: _shop!.shopId,
+        societyId: user.societyId,
+        flatNumber: user.flatNumber,
+        societyName: _deliveryAddress.replaceFirst(
+          'Flat ${user.flatNumber}, ',
+          '',
+        ),
+        shopName: _shop!.shopName,
+        shopPhone: _shop!.phone,
+        items: items,
+        totalAmount: cartService.totalAmount,
+        buyerPhone: FirebaseAuth.instance.currentUser?.phoneNumber ?? '',
+        onError: (message) {
+          if (!mounted) return;
+          setState(() {
+            _loading = false;
+            _waitingForPayment = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        },
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _waitingForPayment = true;
+      });
+
+      _watchForOrder(orderId);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  void _watchForOrder(String orderId) {
+    _orderSub = FirebaseFirestore.instance
+        .collection('orders')
+        .doc(orderId)
+        .snapshots()
+        .listen((snap) {
+      if (!snap.exists || !mounted) return;
+
+      _orderSub?.cancel();
+      cartService.clearCart();
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const OrderSuccessScreen()),
+      );
+    });
   }
 
   @override
@@ -284,11 +396,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               value: 'cod',
               groupValue: _paymentMethod,
               activeColor: mqOrange,
-              onChanged: (_) {
-                setState(() {
-                  _paymentMethod = 'cod';
-                });
-              },
+              onChanged: _waitingForPayment
+                  ? null
+                  : (_) {
+                      setState(() {
+                        _paymentMethod = 'cod';
+                      });
+                    },
               title: const Text('Cash on Delivery'),
               subtitle: const Text('Pay when order is delivered'),
             ),
@@ -296,9 +410,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             RadioListTile<String>(
               value: 'upi',
               groupValue: _paymentMethod,
-              onChanged: null,
+              activeColor: mqOrange,
+              onChanged: _waitingForPayment
+                  ? null
+                  : (_) {
+                      setState(() {
+                        _paymentMethod = 'upi';
+                      });
+                    },
               title: const Text('UPI / Online Payment'),
-              subtitle: const Text('Coming Soon'),
+              subtitle: const Text('Pay now via UPI, cards or netbanking'),
             ),
 
             const SizedBox(height: 24),
@@ -311,12 +432,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
 
+            if (_waitingForPayment) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Payment received — placing your order…',
+                style: TextStyle(color: Colors.green),
+              ),
+            ],
+
             const Spacer(),
 
             /// ✅ ONLY FIX: SAFE AREA WRAP
             SafeArea(
               top: false,
-              child: _loading
+              child: (_loading || _waitingForPayment)
                   ? const Center(child: CircularProgressIndicator())
                   : SizedBox(
                       width: double.infinity,
@@ -329,8 +458,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ),
                         ),
                         onPressed: _placeOrder,
-                        child: const Text(
-                          'Place Order',
+                        child: Text(
+                          _paymentMethod == 'upi' ? 'Pay & Place Order' : 'Place Order',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,

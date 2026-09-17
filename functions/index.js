@@ -26,10 +26,130 @@ function getRazorpayClient() {
 }
 
 /* =========================================================
-   1️⃣ CREATE RAZORPAY ORDER (CALLABLE)
+   📦 Stock arithmetic — Node port of lib/core/stock_delta.dart
+   (groupByProduct / applyStockDelta), used by the buyer-order-payment
+   webhook branch to reduce stock server-side once a payment is
+   captured. Unlike the Dart client version, this never throws on
+   insufficient stock (clamps to 0 instead) — the buyer has already
+   paid by the time this runs, so the order must still be created;
+   losing an order after a real payment would be worse than an
+   occasional oversold item.
    ========================================================= */
+function groupByProductId(items) {
+  const grouped = {};
+  for (const item of items) {
+    (grouped[item.productId] ||= []).push(item);
+  }
+  return grouped;
+}
+
+function applyStockDelta(data, lines, sign) {
+  const rawOptions = data.options;
+  if (Array.isArray(rawOptions) && rawOptions.length > 0) {
+    const options = rawOptions.map((o) => ({ ...o }));
+    for (const line of lines) {
+      const idx = options.findIndex((o) => o.name === line.optionName);
+      if (idx < 0) continue;
+      const next = (options[idx].quantity || 0) + sign * line.quantity;
+      options[idx].quantity = next < 0 ? 0 : next;
+    }
+    const total = options.reduce((s, o) => s + (o.quantity || 0), 0);
+    return { options, quantity: total };
+  }
+
+  const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
+  const next = (data.quantity || 0) + sign * totalQty;
+  return { quantity: next < 0 ? 0 : next };
+}
+
+/* =========================================================
+   1️⃣c BUYER ORDER PAYMENT — webhook branch
+   Second lookup the webhook falls through to when a captured payment's
+   razorpayOrderId doesn't match a seller_activation_payments doc. Mirrors
+   that flow's idempotency guard, then creates the real `orders/{orderId}`
+   doc (using the id pre-generated client-side and stored on the payment
+   doc) and reduces stock — this is the FIRST time the order doc is
+   written for an online-payment order (unlike COD, where the client
+   writes it immediately at checkout), so notifySellerOnNewOrder
+   naturally only fires once payment is actually captured.
+   ========================================================= */
+async function handleBuyerOrderPaymentCaptured(razorpayOrderId, payment, res) {
+  const snap = await db
+    .collection("buyer_order_payments")
+    .where("razorpayOrderId", "==", razorpayOrderId)
+    .limit(1)
+    .get();
+
+  if (snap.empty) return res.sendStatus(200);
+
+  const paymentDoc = snap.docs[0];
+  const paymentData = paymentDoc.data();
+
+  if (paymentData.status === "completed") {
+    return res.sendStatus(200);
+  }
+
+  const {
+    orderId,
+    items,
+    buyerId,
+    sellerId,
+    societyId,
+    flatNumber,
+    societyName,
+    shopName,
+    shopPhone,
+    totalAmount,
+  } = paymentData;
+
+  await db.runTransaction(async (tx) => {
+    const grouped = groupByProductId(items);
+    const productIds = Object.keys(grouped);
+    const productRefs = productIds.map((id) => db.collection("products").doc(id));
+    const productSnaps = await Promise.all(productRefs.map((ref) => tx.get(ref)));
+
+    const patches = productIds.map((id, i) => {
+      const productSnap = productSnaps[i];
+      if (!productSnap.exists) return null;
+      return applyStockDelta(productSnap.data(), grouped[id], -1);
+    });
+
+    productRefs.forEach((ref, i) => {
+      if (patches[i]) tx.update(ref, patches[i]);
+    });
+
+    tx.set(db.collection("orders").doc(orderId), {
+      buyerId,
+      sellerId,
+      societyId,
+      flatNumber,
+      societyName,
+      shopName,
+      shopPhone,
+      items,
+      totalAmount,
+      status: "placed",
+      paymentMethod: "razorpay",
+      paymentStatus: "paid",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    tx.update(paymentDoc.ref, {
+      status: "completed",
+      razorpayPaymentId: payment.id,
+      capturedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  console.log("BUYER ORDER PLACED VIA WEBHOOK", { orderId, buyerId });
+  return res.sendStatus(200);
+}
+
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 
+/* =========================================================
+   1️⃣ CREATE RAZORPAY ORDER (CALLABLE)
+   ========================================================= */
 exports.createSellerOrder = onCall(
   {
     secrets: [
@@ -88,6 +208,75 @@ exports.createSellerOrder = onCall(
   }
 );
 
+/* =========================================================
+   1️⃣b CREATE BUYER ORDER RAZORPAY ORDER (CALLABLE)
+   Mirrors createSellerOrder above. amount is server-derived from the
+   buyer_order_payments doc, never trusted from the client directly.
+   Note: like the seller flow, totalAmount on that doc is itself
+   client-supplied at creation time and not re-validated here against
+   live product prices/stock - same trust model as the existing seller
+   activation flow, not a new regression. A future hardening could
+   recompute totalAmount from live product data before creating the
+   Razorpay order.
+   ========================================================= */
+exports.createBuyerOrderPayment = onCall(
+  {
+    secrets: [
+      RAZORPAY_KEY_ID,
+      RAZORPAY_KEY_SECRET,
+    ],
+  },
+  async (request) => {
+    const { paymentDocId } = request.data || {};
+
+    if (!paymentDocId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "paymentDocId is required"
+      );
+    }
+
+    const paymentRef = db
+      .collection("buyer_order_payments")
+      .doc(paymentDocId);
+
+    const snap = await paymentRef.get();
+
+    if (!snap.exists) {
+      throw new HttpsError(
+        "not-found",
+        "Payment record not found"
+      );
+    }
+
+    const { totalAmount } = snap.data();
+
+    if (typeof totalAmount !== "number" || totalAmount <= 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Invalid totalAmount in payment record"
+      );
+    }
+
+    const razorpay = getRazorpayClient();
+
+    const order = await razorpay.orders.create({
+      amount: Math.round(totalAmount * 100),
+      currency: "INR",
+      payment_capture: 1,
+    });
+
+    await paymentRef.update({
+      razorpayOrderId: order.id,
+      status: "order_created",
+      orderCreatedAt:
+        admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { orderId: order.id };
+  }
+);
+
 
 /* =========================================================
    2️⃣ RAZORPAY WEBHOOK (FINAL AUTHORITY)
@@ -122,7 +311,9 @@ exports.razorpayWebhook = onRequest(
         .limit(1)
         .get();
 
-      if (snap.empty) return res.sendStatus(200);
+      if (snap.empty) {
+        return handleBuyerOrderPaymentCaptured(razorpayOrderId, payment, res);
+      }
 
       const paymentDoc = snap.docs[0];
       const paymentData = paymentDoc.data();
