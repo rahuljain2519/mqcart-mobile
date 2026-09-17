@@ -506,6 +506,115 @@ exports.notifySellerOnNewOrder = onDocumentCreated(
   }
 );
 
+/* =========================================================
+   4️⃣ ADMIN: FULLY DELETE A SELLER (CALLABLE, ADMIN ONLY)
+   Irreversible. Resets users/{uid} back to a plain buyer and removes
+   every seller-specific doc/file: shop(s) + their products (Firestore
+   and Storage images), seller_applications, seller_subscriptions,
+   seller_activation_payments (client can't delete these directly - rules
+   have allow delete: if false - this function is exactly why it's a
+   Cloud Function), and the societies/{societyId}/sellers KYC doc + its
+   Storage files.
+
+   Deliberately NOT touched: `orders` (historical transactions involving
+   other people - shouldn't vanish retroactively) and
+   `buyer_order_payments` (this uid's own purchases AS A BUYER, unrelated
+   to their seller identity).
+   ========================================================= */
+async function deleteFirestoreDocsInChunks(refs) {
+  for (let i = 0; i < refs.length; i += 400) {
+    const chunk = refs.slice(i, i + 400);
+    const batch = db.batch();
+    chunk.forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
+exports.adminDeleteSeller = onCall(async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const callerSnap = await db.collection("users").doc(callerUid).get();
+  if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+    throw new HttpsError("permission-denied", "Admin only.");
+  }
+
+  const { uid } = request.data || {};
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "uid is required.");
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new HttpsError("not-found", "User not found.");
+  }
+  const societyId = userSnap.data().societyId || null;
+
+  const bucket = admin.storage().bucket();
+
+  // 1️⃣ Shop(s) + their products (Firestore + Storage)
+  const shopsSnap = await db.collection("shops").where("sellerId", "==", uid).get();
+  for (const shopDoc of shopsSnap.docs) {
+    const shopId = shopDoc.id;
+
+    const productsSnap = await db
+      .collection("products")
+      .where("shopId", "==", shopId)
+      .get();
+    await deleteFirestoreDocsInChunks(productsSnap.docs.map((d) => d.ref));
+
+    await bucket.deleteFiles({ prefix: `products/${shopId}/` }).catch(() => {});
+    await bucket.deleteFiles({ prefix: `shops/${shopId}/` }).catch(() => {});
+
+    await shopDoc.ref.delete();
+  }
+
+  // 2️⃣ seller_applications
+  await db.collection("seller_applications").doc(uid).delete().catch(() => {});
+
+  // 3️⃣ seller_subscriptions
+  await db.collection("seller_subscriptions").doc(uid).delete().catch(() => {});
+
+  // 4️⃣ seller_activation_payments (client can't delete these - rules block it)
+  const paymentsSnap = await db
+    .collection("seller_activation_payments")
+    .where("sellerId", "==", uid)
+    .get();
+  await deleteFirestoreDocsInChunks(paymentsSnap.docs.map((d) => d.ref));
+
+  // 5️⃣ societies/{societyId}/sellers/{uid} KYC doc + its Storage files
+  if (societyId) {
+    await db
+      .collection("societies")
+      .doc(societyId)
+      .collection("sellers")
+      .doc(uid)
+      .delete()
+      .catch(() => {});
+    await bucket
+      .deleteFiles({ prefix: `seller_documents/${societyId}/${uid}/` })
+      .catch(() => {});
+  }
+
+  // 6️⃣ Reset the user back to a plain buyer (not deleted - they keep their
+  // account, name, phone, society/flat).
+  await userRef.update({
+    role: "buyer",
+    sellerStatus: "none",
+    shopId: null,
+    approvedAt: admin.firestore.FieldValue.delete(),
+    rejectedAt: admin.firestore.FieldValue.delete(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  console.log("SELLER DELETED BY ADMIN", { uid, admin: callerUid });
+
+  return { success: true };
+});
+
 exports.onOrderCompleted = require("./analytics/onOrderCompleted").onOrderCompleted;
 exports.nightlyAggregation = require("./analytics/nightlyAggregation").nightlyAggregation;
 exports.seedMqCartTestData = require('./adminSeed').seedMqCartTestData;

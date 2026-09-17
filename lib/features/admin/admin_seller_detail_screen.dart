@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../models/user_model.dart';
 import '../../models/shop_model.dart';
@@ -109,12 +110,81 @@ class AdminSellerDetailScreen extends StatelessWidget {
                     },
                   ),
                 ],
+
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 8),
+                _sectionTitle('Danger Zone'),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                  icon: const Icon(Icons.delete_forever),
+                  label: const Text('Delete Seller'),
+                  onPressed: () => _confirmDeleteSeller(context),
+                ),
               ],
             );
           },
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteSeller(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this seller?'),
+        content: const Text(
+          'This permanently removes their shop, every product, seller '
+          'application, subscription, payment records, and uploaded '
+          'documents (KYC, shop images, product photos). They go back to '
+          'being a plain buyer with the same account — this cannot be '
+          'undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Delete permanently',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('adminDeleteSeller')
+          .call({'uid': user.uid});
+
+      if (context.mounted) {
+        Navigator.pop(context); // close the loading dialog
+        Navigator.pop(context); // back to the seller list
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // close the loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not delete seller: $e')),
+        );
+      }
+    }
   }
 
   /// ---------------------------

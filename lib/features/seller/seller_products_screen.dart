@@ -239,6 +239,10 @@ class SellerProductsScreen extends StatelessWidget {
                           }
 
                           if (value == 'activate') {
+                            if (!shop.isActive) {
+                              _showActivationRequired(context);
+                              return;
+                            }
                             if (activeCount >= shop.productLimit) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
