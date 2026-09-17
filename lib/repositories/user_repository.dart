@@ -3,11 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../data/datasources/user_remote_ds.dart';
 import '../data/datasources/seller_application_remote_ds.dart';
 import '../models/user_model.dart';
+import 'shop_repository.dart';
 
 class UserRepository {
   final UserRemoteDS _remoteDS = UserRemoteDS();
   final SellerApplicationRemoteDS _sellerAppDS =
       SellerApplicationRemoteDS();
+  final ShopRepository _shopRepository = ShopRepository();
 
   /// 🔹 One-time fetch (used in non-reactive flows)
   Future<UserModel> getUser(String uid) {
@@ -33,8 +35,15 @@ class UserRepository {
   }
 
   /// 🔹 Update full user profile
-  Future<void> updateUser(UserModel user) {
-    return _remoteDS.updateUser(user);
+  Future<void> updateUser(UserModel user) async {
+    await _remoteDS.updateUser(user);
+
+    if (user.role == 'seller') {
+      await _shopRepository.syncShopSocietyToSeller(
+        sellerId: user.uid,
+        societyId: user.societyId,
+      );
+    }
   }
 
   /// 🔹 Partial update (IMPORTANT for seller flow)

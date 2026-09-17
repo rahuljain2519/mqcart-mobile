@@ -185,4 +185,43 @@ class ShopRepository {
 
     await batch.commit();
   }
+
+  /// ---------------------------------
+  /// KEEP A SELLER'S SHOP + PRODUCTS IN THE SOCIETY THEY'RE ACTUALLY IN
+  /// Call whenever a seller's own societyId changes (admin edit, or a
+  /// future self-service address change) — otherwise their shop/products
+  /// stay tied to their old society and never show up for buyers in the
+  /// new one. No-op if they have no shop yet, or it's already correct.
+  /// ---------------------------------
+  Future<void> syncShopSocietyToSeller({
+    required String sellerId,
+    required String societyId,
+  }) async {
+    final shop = await getMyShop(sellerId);
+    if (shop == null || shop.societyId == societyId) return;
+
+    final firestore = FirebaseFirestore.instance;
+    final batch = firestore.batch();
+
+    batch.update(
+      firestore.collection('shops').doc(shop.shopId),
+      {'societyId': societyId},
+    );
+
+    final productsSnap = await firestore
+        .collection('products')
+        .where('shopId', isEqualTo: shop.shopId)
+        .get();
+
+    if (productsSnap.docs.length > 450) {
+      throw Exception(
+          'Too many products to move to the new society in a single batch.');
+    }
+
+    for (final doc in productsSnap.docs) {
+      batch.update(doc.reference, {'societyId': societyId});
+    }
+
+    await batch.commit();
+  }
 }
