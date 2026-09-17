@@ -11,6 +11,7 @@ import '../../repositories/user_repository.dart';
 import '../../repositories/society_repository.dart';
 import '../../models/user_model.dart';
 import '../../models/society_model.dart';
+import '../seller/seller_application_screen.dart';
 
 class MainShell extends StatefulWidget {
   final int initialIndex;
@@ -57,7 +58,7 @@ class _MainShellState extends State<MainShell> {
           final user = userSnap.data;
 
           if (user == null || user.societyId.isEmpty) {
-            return _headerUI('Select delivery address');
+            return _headerUI('Select delivery address', user);
           }
 
           return FutureBuilder<SocietyModel?>(
@@ -67,6 +68,7 @@ class _MainShellState extends State<MainShell> {
                   societySnap.data?.name ?? 'Your Society';
               return _headerUI(
                 'Flat ${user.flatNumber}, $societyName',
+                user,
               );
             },
           );
@@ -75,7 +77,9 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _headerUI(String addressText) {
+  Widget _headerUI(String addressText, UserModel? user) {
+    final showSellCta =
+        user != null && user.role == 'buyer' && user.sellerStatus == 'none';
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFFFE1CC), // 🌤 brighter peach (less dull)
@@ -123,9 +127,24 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
 
-                  /// Cart + Logout
+                  /// Sell + Cart + Logout
                   Row(
                     children: [
+                      if (showSellCta)
+                        IconButton(
+                          icon: const Icon(Icons.storefront_outlined),
+                          color: Colors.black87,
+                          tooltip: 'Become a Seller',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const SellerApplicationScreen(),
+                              ),
+                            );
+                          },
+                        ),
                       const CartBadge(),
                       IconButton(
                         icon: const Icon(Icons.logout),
