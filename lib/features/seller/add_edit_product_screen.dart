@@ -16,11 +16,18 @@ import '../../config/option_labels.dart';
 class AddEditProductScreen extends StatefulWidget {
   final String shopId;
   final ProductModel? product;
+  /// Prefill fields from an existing product without editing it — used by
+  /// the "Copy" action to start a new product as a duplicate. Images are
+  /// deliberately NOT copied (see initState): Storage files live under
+  /// products/{shopId}/{productId}/, keyed to the ORIGINAL product's id, so
+  /// reusing those URLs would break if the original is later deleted.
+  final ProductModel? copyFrom;
 
   const AddEditProductScreen({
     super.key,
     required this.shopId,
     this.product,
+    this.copyFrom,
   });
 
   @override
@@ -112,71 +119,68 @@ class _AddEditProductScreenState
   void initState() {
     super.initState();
 
-    if (widget.product != null) {
-      _nameController.text = widget.product!.name;
-      _priceController.text =
-          widget.product!.price.toString();
-      _quantityController.text =
-          widget.product!.quantity.toString();
-      _categoryController.text =
-          widget.product!.category;
-      _descriptionController.text =
-          widget.product!.description;
-      _brandController.text = widget.product!.brand ?? '';
-      if (widget.product!.unitValue != null) {
-        final v = widget.product!.unitValue!;
+    final source = widget.product ?? widget.copyFrom;
+    if (source != null) {
+      _nameController.text = source.name;
+      _priceController.text = source.price.toString();
+      _quantityController.text = source.quantity.toString();
+      _categoryController.text = source.category;
+      _descriptionController.text = source.description;
+      _brandController.text = source.brand ?? '';
+      if (source.unitValue != null) {
+        final v = source.unitValue!;
         _unitValueController.text =
             v % 1 == 0 ? v.toStringAsFixed(0) : v.toString();
       }
-      _selectedUnitType = widget.product!.unitType != null &&
-              kUnitTypes.contains(widget.product!.unitType)
-          ? widget.product!.unitType
+      _selectedUnitType = source.unitType != null &&
+              kUnitTypes.contains(source.unitType)
+          ? source.unitType
           : null;
-      _mrpController.text = widget.product!.mrp?.toString() ?? '';
+      _mrpController.text = source.mrp?.toString() ?? '';
 
       // Normalise legacy values ("Groceries", "Clothing"…) to the canonical
       // list so the dropdown has a matching item; unknown -> null.
-      final norm = normalizeCategory(widget.product!.category);
+      final norm = normalizeCategory(source.category);
       _selectedCategory = _categories.contains(norm) ? norm : null;
 
       // Fall back to unset if the stored subcategory doesn't match the
       // current list for this category (e.g. taxonomy changed since save).
       if (_selectedCategory != null &&
-          widget.product!.subcategory != null &&
+          source.subcategory != null &&
           subcategoriesFor(_selectedCategory!)
-              .contains(widget.product!.subcategory)) {
-        _selectedSubcategory = widget.product!.subcategory;
+              .contains(source.subcategory)) {
+        _selectedSubcategory = source.subcategory;
       }
 
-      _existingImages = List.from(widget.product!.images);
-
-      _coverIndex = widget.product!.images
-          .indexOf(widget.product!.coverImage);
-
-      if (_coverIndex < 0) _coverIndex = 0;
+      // Copies start with a clean image slate — see the copyFrom doc
+      // comment above for why existing images aren't carried over.
+      if (widget.product != null) {
+        _existingImages = List.from(source.images);
+        _coverIndex = source.images.indexOf(source.coverImage);
+        if (_coverIndex < 0) _coverIndex = 0;
+      }
 
       // 🆕 LOAD DELIVERY OVERRIDE IF EXISTS
-      if (widget.product!.deliveryMinMinutes != null) {
+      if (source.deliveryMinMinutes != null) {
         _overrideDelivery = true;
-        _deliveryUnit =
-            widget.product!.deliveryUnit ?? 'hours';
+        _deliveryUnit = source.deliveryUnit ?? 'hours';
         _deliveryMinController.text =
-            widget.product!.deliveryMinValue?.toString() ?? '';
+            source.deliveryMinValue?.toString() ?? '';
         _deliveryMaxController.text =
-            widget.product!.deliveryMaxValue?.toString() ?? '';
+            source.deliveryMaxValue?.toString() ?? '';
       }
 
       // 🆕 LOAD VARIANT OPTIONS IF EXIST
-      if (widget.product!.hasOptions) {
+      if (source.hasOptions) {
         _hasOptions = true;
-        final storedLabel = widget.product!.optionLabel ?? 'Option';
+        final storedLabel = source.optionLabel ?? 'Option';
         if (kOptionLabels.contains(storedLabel)) {
           _selectedOptionLabel = storedLabel;
         } else {
           _customOptionLabel = true;
           _optionLabelController.text = storedLabel;
         }
-        _optionRows = widget.product!.options
+        _optionRows = source.options
             .map((o) => _OptionRow(
                   name: o.name,
                   price: o.price.toString(),

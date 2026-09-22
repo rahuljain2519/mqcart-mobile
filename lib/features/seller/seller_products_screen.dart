@@ -225,6 +225,43 @@ class SellerProductsScreen extends StatelessWidget {
                             }
                           }
 
+                          if (value == 'copy') {
+                            if (!shop.isActive) {
+                              _showActivationRequired(context);
+                              return;
+                            }
+                            if (activeCount >= shop.productLimit) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Product limit reached (${shop.productLimit})',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AddEditProductScreen(
+                                  shopId: shop.shopId,
+                                  copyFrom: product,
+                                ),
+                              ),
+                            );
+
+                            if (result == true && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Product added successfully'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          }
+
                           if (value == 'delete') {
                             await productRepository
                                 .deleteProduct(product.id);
@@ -272,6 +309,10 @@ class SellerProductsScreen extends StatelessWidget {
                           const PopupMenuItem(
                             value: 'edit',
                             child: Text('Edit'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'copy',
+                            child: Text('Copy'),
                           ),
                           if (product.isActive)
                             const PopupMenuItem(
