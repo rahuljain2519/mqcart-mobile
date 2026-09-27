@@ -232,8 +232,18 @@ class _SellerOnboardingScreenState extends State<SellerOnboardingScreen> {
         'sellerStatus': 'active',
       });
 
+      // No navigation needed: SellerHome's StreamBuilder on the current
+      // user doc (see SellerGuard.needsOnboarding) reactively swaps this
+      // onboarding screen out for the shop dashboard as soon as the
+      // shopId/sellerStatus write above lands. This screen is never
+      // Navigator.push'd (it's rendered inline by that StreamBuilder), so
+      // an unconditional Navigator.pop(context) here either no-ops —
+      // leaving the seller stuck looking at the same form even though the
+      // shop was created successfully — or pops an unrelated route.
       if (!mounted) return;
-      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Shop created!')),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
