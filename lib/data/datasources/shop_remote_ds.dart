@@ -98,6 +98,26 @@ class ShopRemoteDS {
         );
   }
 
+  /// 🔄 Admin: live stream of EVERY shop in a society, active or not — for
+  /// browsing shops by society (streamShopsForSociety above is the
+  /// buyer-facing active-only version).
+  Stream<List<ShopModel>> streamAllShopsForSociety(String societyId) {
+    return _firestore
+        .shops()
+        .where('societyId', isEqualTo: societyId)
+        .snapshots()
+        .map(
+          (query) => query.docs
+              .map(
+                (doc) => ShopModel.fromJson(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ),
+              )
+              .toList(),
+        );
+  }
+
   /// Get shop by shopId (Buyer flow)
   Future<ShopModel?> getShopById(String shopId) async {
     final doc = await _firestore.shops().doc(shopId).get();
