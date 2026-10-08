@@ -226,16 +226,25 @@ class _SellerOnboardingScreenState extends State<SellerOnboardingScreen> {
 
       await _shopRepository.updateShop(updatedShop);
 
-      // 5️⃣ Link shop to user, seller is now fully active
+      // 5️⃣ Link shop to user. Deliberately NOT setting sellerStatus here
+      // (matches web's linkShopToUser, which only ever writes shopId) —
+      // firestore.rules' sellerStatusSafe() has no clause allowing a
+      // non-admin user to self-transition 'approved' -> 'active', so
+      // including it here made this whole update() call get rejected by
+      // security rules (Firestore update()s are all-or-nothing), silently
+      // failing to write shopId too and leaving the seller stuck forever
+      // on this screen even though the shop itself was created fine.
+      // SellerGuard.needsOnboarding/isSeller only look at shopId, not
+      // sellerStatus, so dropping this write doesn't change app behavior
+      // at all beyond actually letting the write succeed.
       await _userRepository.updateUserFields(uid, {
         'shopId': shopId,
-        'sellerStatus': 'active',
       });
 
       // No navigation needed: SellerHome's StreamBuilder on the current
       // user doc (see SellerGuard.needsOnboarding) reactively swaps this
       // onboarding screen out for the shop dashboard as soon as the
-      // shopId/sellerStatus write above lands. This screen is never
+      // shopId write above lands. This screen is never
       // Navigator.push'd (it's rendered inline by that StreamBuilder), so
       // an unconditional Navigator.pop(context) here either no-ops —
       // leaving the seller stuck looking at the same form even though the
