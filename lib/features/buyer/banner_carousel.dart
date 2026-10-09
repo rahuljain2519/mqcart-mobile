@@ -76,8 +76,12 @@ class _BannerCarouselState extends State<BannerCarousel> {
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
-            child: SizedBox(
-              height: 140,
+            // Scales with the available width instead of a flat height, so
+            // tablets/large-screen phones get a proportionally taller
+            // banner instead of the same fixed 140px everywhere. Matches
+            // the 5:2 ratio used on web.
+            child: AspectRatio(
+              aspectRatio: 5 / 2,
               child: Stack(
                 children: [
                   PageView.builder(
