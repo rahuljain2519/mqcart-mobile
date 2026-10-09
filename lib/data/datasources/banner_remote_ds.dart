@@ -6,10 +6,14 @@ import '../../models/banner_model.dart';
 class BannerRemoteDS {
   final FirestoreService _firestore = FirestoreService();
 
+  // isActive filtered client-side rather than as a .where() clause -
+  // combined with .orderBy('order') on a different field, that needs a
+  // composite index Firestore doesn't have here, which fails the listener
+  // silently and the carousel never appears. Collection is tiny, so
+  // sorting server-side and filtering here is simpler than deploying one.
   Stream<List<BannerModel>> streamActiveBanners() {
     return _firestore
         .banners()
-        .where('isActive', isEqualTo: true)
         .orderBy('order')
         .snapshots()
         .map(
@@ -18,6 +22,7 @@ class BannerRemoteDS {
                     d.data() as Map<String, dynamic>,
                     d.id,
                   ))
+              .where((b) => b.isActive)
               .toList(),
         );
   }
