@@ -12,6 +12,7 @@ import '../../config/categories.dart';
 import '../../core/widgets/mq_network_image.dart';
 import '../../core/widgets/clear_cart_dialog.dart';
 import 'category_scroller.dart';
+import 'banner_carousel.dart';
 import '../seller/seller_application_screen.dart';
 
 class BuyerHome extends StatefulWidget {
@@ -99,6 +100,9 @@ class _BuyerHomeState extends State<BuyerHome> {
             ),
 
             const SizedBox(height: 8),
+
+            /// 🖼 LANDING PAGE BANNERS (admin-managed)
+            const BannerCarousel(),
 
             /// 🏪 BECOME A SELLER BANNER (buyers only, hidden once applied)
             FutureBuilder<UserModel?>(

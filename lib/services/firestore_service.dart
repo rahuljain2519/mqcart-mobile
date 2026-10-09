@@ -12,4 +12,5 @@ class FirestoreService {
   CollectionReference sellerApplications() => _db.collection('seller_applications');
   CollectionReference sellerActivationPayments() => _db.collection('seller_activation_payments');
   CollectionReference settlements() => _db.collection('settlements');
+  CollectionReference banners() => _db.collection('banners');
 }
