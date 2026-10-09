@@ -4,6 +4,16 @@ import '../../services/firestore_service.dart';
 import '../../models/order_model.dart';
 import '../../models/settlement_model.dart';
 
+/// Platform commission on the seller's payout - 2.4% on online (Razorpay)
+/// orders, 0% on COD (the seller already collected that cash directly, MQ
+/// Cart never touched it). Shared by the report's "Settlement Amount"
+/// column and the Settlements screen's per-seller totals so the two always
+/// agree on what a seller is actually owed.
+double calculateSettlementAmount(double totalAmount, String paymentMethod) {
+  final commissionRate = paymentMethod == 'razorpay' ? 0.024 : 0.0;
+  return totalAmount * (1 - commissionRate);
+}
+
 class UnsettledSellerTotal {
   final String sellerId;
   final String shopName;
@@ -27,12 +37,15 @@ class TransactionReportRow {
   final String paymentStatus;
   final String orderStatus;
   final String societyName;
+  final String sellerId;
   final String sellerName;
   final String shopName;
   final String bankAccountNumber;
   final String ifscCode;
   final String productDetails;
   final double totalAmount;
+  final double settlementAmount;
+  final bool settled;
 
   TransactionReportRow({
     required this.orderId,
@@ -41,12 +54,15 @@ class TransactionReportRow {
     required this.paymentStatus,
     required this.orderStatus,
     required this.societyName,
+    required this.sellerId,
     required this.sellerName,
     required this.shopName,
     required this.bankAccountNumber,
     required this.ifscCode,
     required this.productDetails,
     required this.totalAmount,
+    required this.settlementAmount,
+    required this.settled,
   });
 }
 
@@ -142,7 +158,11 @@ class OrderRemoteDS {
       if (data['paymentStatus'] != 'paid' || data['settled'] == true) continue;
 
       final sellerId = data['sellerId'] as String;
-      final amount = (data['totalAmount'] as num).toDouble();
+      // Net of the 2.4% platform commission - what the seller is actually
+      // owed, matching the Reports screen's Settlement Amount column.
+      // Using the gross totalAmount here would overpay every seller.
+      final amount = calculateSettlementAmount(
+          (data['totalAmount'] as num).toDouble(), 'razorpay');
       final existing = bySeller[sellerId];
       if (existing != null) {
         existing.orderIds.add(doc.id);
@@ -286,6 +306,7 @@ class OrderRemoteDS {
       final bank = bankById[sellerId];
       final items = List<Map<String, dynamic>>.from(o['items'] ?? []);
       final createdAt = o['createdAt'];
+      final totalAmount = (o['totalAmount'] as num?)?.toDouble() ?? 0;
       return TransactionReportRow(
         orderId: o['id'] ?? '',
         date: createdAt is Timestamp
@@ -295,6 +316,7 @@ class OrderRemoteDS {
         paymentStatus: o['paymentStatus'] ?? '',
         orderStatus: o['status'] ?? '',
         societyName: o['societyName'] ?? '',
+        sellerId: sellerId,
         sellerName: nameById[sellerId] ?? '',
         shopName: o['shopName'] ?? '',
         bankAccountNumber: bank?.$1 ?? '',
@@ -303,8 +325,51 @@ class OrderRemoteDS {
             .map((it) =>
                 '${it['name']}${it['optionName'] != null ? ' (${it['optionName']})' : ''} x${it['quantity']} @ ₹${it['price']}')
             .join('; '),
-        totalAmount: (o['totalAmount'] as num?)?.toDouble() ?? 0,
+        totalAmount: totalAmount,
+        settlementAmount: calculateSettlementAmount(
+            totalAmount, o['paymentMethod'] ?? ''),
+        settled: o['settled'] == true,
       );
     }).toList();
+  }
+
+  /// Admin-only: flip a single order's settlement status from the Reports
+  /// screen. Marking "Paid" creates a one-order settlement record (same
+  /// audit trail as the Settlements screen's batch action, using the
+  /// commission-adjusted settlementAmount, not the gross order total).
+  /// Marking back to "Pending" just unlinks the order - the settlement
+  /// record itself is left alone for audit purposes rather than deleted.
+  Future<void> updateOrderSettlementStatus({
+    required String orderId,
+    required String sellerId,
+    required String shopName,
+    required double settlementAmount,
+    required bool settled,
+    required String settledBy,
+  }) async {
+    if (!settled) {
+      await _firestore.orders().doc(orderId).update({
+        'settled': false,
+        'settlementId': null,
+      });
+      return;
+    }
+
+    final settlementRef = _firestore.settlements().doc();
+    final batch = FirebaseFirestore.instance.batch();
+    batch.set(settlementRef, {
+      'sellerId': sellerId,
+      'shopName': shopName,
+      'orderIds': [orderId],
+      'totalAmount': settlementAmount,
+      'note': '',
+      'settledBy': settledBy,
+      'settledAt': FieldValue.serverTimestamp(),
+    });
+    batch.update(_firestore.orders().doc(orderId), {
+      'settled': true,
+      'settlementId': settlementRef.id,
+    });
+    await batch.commit();
   }
 }

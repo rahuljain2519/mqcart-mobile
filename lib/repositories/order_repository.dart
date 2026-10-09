@@ -119,4 +119,22 @@ class OrderRepository {
       paymentMethod: paymentMethod,
     );
   }
+
+  Future<void> updateOrderSettlementStatus({
+    required String orderId,
+    required String sellerId,
+    required String shopName,
+    required double settlementAmount,
+    required bool settled,
+    required String settledBy,
+  }) {
+    return _remoteDS.updateOrderSettlementStatus(
+      orderId: orderId,
+      sellerId: sellerId,
+      shopName: shopName,
+      settlementAmount: settlementAmount,
+      settled: settled,
+      settledBy: settledBy,
+    );
+  }
 }

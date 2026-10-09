@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:csv/csv.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -40,6 +41,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   List<TransactionReportRow>? _rows;
   bool _busy = false;
   String? _error;
+  String? _statusBusyOrderId;
 
   @override
   void initState() {
@@ -98,6 +100,50 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     }
   }
 
+  Future<void> _toggleSettled(TransactionReportRow row) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    setState(() => _statusBusyOrderId = row.orderId);
+    try {
+      await _orderRepo.updateOrderSettlementStatus(
+        orderId: row.orderId,
+        sellerId: row.sellerId,
+        shopName: row.shopName,
+        settlementAmount: row.settlementAmount,
+        settled: !row.settled,
+        settledBy: uid,
+      );
+      if (!mounted) return;
+      setState(() {
+        _rows = _rows
+            ?.map((r) => r.orderId == row.orderId
+                ? TransactionReportRow(
+                    orderId: r.orderId,
+                    date: r.date,
+                    transactionType: r.transactionType,
+                    paymentStatus: r.paymentStatus,
+                    orderStatus: r.orderStatus,
+                    societyName: r.societyName,
+                    sellerId: r.sellerId,
+                    sellerName: r.sellerName,
+                    shopName: r.shopName,
+                    bankAccountNumber: r.bankAccountNumber,
+                    ifscCode: r.ifscCode,
+                    productDetails: r.productDetails,
+                    totalAmount: r.totalAmount,
+                    settlementAmount: r.settlementAmount,
+                    settled: !r.settled,
+                  )
+                : r)
+            .toList();
+      });
+    } catch (e) {
+      setState(() => _error = 'Could not update settlement status: $e');
+    } finally {
+      if (mounted) setState(() => _statusBusyOrderId = null);
+    }
+  }
+
   Future<void> _exportFiltered() async {
     final rows = _rows;
     if (rows == null || rows.isEmpty) return;
@@ -116,6 +162,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         'IFSC Code',
         'Product Details',
         'Total Amount',
+        'Settlement Amount',
+        'Settlement Status',
       ],
       ...rows.map((r) => [
             r.orderId,
@@ -130,6 +178,10 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             r.ifscCode,
             r.productDetails,
             r.totalAmount,
+            r.settlementAmount.toStringAsFixed(2),
+            r.transactionType == 'razorpay'
+                ? (r.settled ? 'Paid' : 'Pending')
+                : 'COD - n/a',
           ]),
     ];
     final csvString = const ListToCsvConverter().convert(csvData);
@@ -146,6 +198,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   Widget build(BuildContext context) {
     final rows = _rows;
     final total = rows?.fold<double>(0, (sum, r) => sum + r.totalAmount) ?? 0;
+    final settlementTotal =
+        rows?.fold<double>(0, (sum, r) => sum + r.settlementAmount) ?? 0;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Transaction Report')),
@@ -238,7 +292,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Text(
-                      '${rows.length} transactions · ₹${total.toStringAsFixed(0)} total',
+                      '${rows.length} transactions · ₹${total.toStringAsFixed(0)} gross · '
+                      '₹${settlementTotal.toStringAsFixed(0)} settlement amount',
                       style: TextStyle(color: Colors.grey.shade700),
                     ),
                   ),
@@ -303,6 +358,30 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                                     r.productDetails,
                                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                                   ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Settlement: ₹${r.settlementAmount.toStringAsFixed(0)}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      if (r.transactionType == 'razorpay')
+                                        _SettlementStatusChip(
+                                          settled: r.settled,
+                                          busy: _statusBusyOrderId == r.orderId,
+                                          onTap: () => _toggleSettled(r),
+                                        )
+                                      else
+                                        const Text(
+                                          'COD — n/a',
+                                          style: TextStyle(color: Colors.grey, fontSize: 11),
+                                        ),
+                                    ],
+                                  ),
                                   const SizedBox(height: 4),
                                   Text(
                                     r.date.isNotEmpty
@@ -325,4 +404,38 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
 extension on String {
   String slice0To10() => length >= 10 ? substring(0, 10) : this;
+}
+
+class _SettlementStatusChip extends StatelessWidget {
+  final bool settled;
+  final bool busy;
+  final VoidCallback onTap;
+
+  const _SettlementStatusChip({
+    required this.settled,
+    required this.busy,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: busy ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: settled ? Colors.green.shade100 : Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          busy ? '…' : (settled ? 'Paid' : 'Pending'),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: settled ? Colors.green.shade800 : Colors.black54,
+          ),
+        ),
+      ),
+    );
+  }
 }
