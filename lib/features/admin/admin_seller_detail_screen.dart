@@ -124,9 +124,19 @@ class AdminSellerDetailScreen extends StatelessWidget {
                       child: const Text('Create Razorpay account'),
                     )
                   else
-                    OutlinedButton(
-                      onPressed: () => _refreshRouteStatus(context),
-                      child: const Text('Refresh status'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => _refreshRouteStatus(context),
+                          child: const Text('Refresh status'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => _updateRouteBankDetails(context),
+                          child: const Text('Update bank details on Razorpay'),
+                        ),
+                      ],
                     ),
                   if (shop.email == null || shop.email!.isEmpty)
                     Padding(
@@ -265,6 +275,32 @@ class AdminSellerDetailScreen extends StatelessWidget {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not refresh status: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateRouteBankDetails(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('updateSellerRouteBankDetails')
+          .call({'uid': user.uid});
+
+      if (context.mounted) {
+        Navigator.pop(context);
+        (context as Element).markNeedsBuild();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update bank details: $e')),
         );
       }
     }

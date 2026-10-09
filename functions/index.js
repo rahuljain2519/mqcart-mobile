@@ -865,6 +865,84 @@ exports.refreshSellerRouteStatus = onCall(
   }
 );
 
+exports.updateSellerRouteBankDetails = onCall(
+  { secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET] },
+  async (request) => {
+    const callerUid = request.auth?.uid;
+    if (!callerUid) throw new HttpsError("unauthenticated", "Sign in required.");
+
+    const callerSnap = await db.collection("users").doc(callerUid).get();
+    if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+
+    const { uid } = request.data || {};
+    if (!uid) throw new HttpsError("invalid-argument", "uid is required.");
+
+    const [appSnap, shopSnap] = await Promise.all([
+      db.collection("seller_applications").doc(uid).get(),
+      db.collection("shops").where("sellerId", "==", uid).limit(1).get(),
+    ]);
+    if (!appSnap.exists) throw new HttpsError("not-found", "Seller application not found.");
+    if (shopSnap.empty) throw new HttpsError("not-found", "Seller has no shop.");
+
+    const app = appSnap.data();
+    const shopDoc = shopSnap.docs[0];
+    const shop = shopDoc.data();
+    if (!shop.razorpayAccountId || !shop.razorpayRouteProductId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "No Razorpay Route account on file yet - use Create Razorpay account instead."
+      );
+    }
+    if (!app.bankAccountNumber || !app.ifscCode) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Seller's application is missing bank account number / IFSC."
+      );
+    }
+
+    const razorpay = getRazorpayClient();
+
+    // Pushing new settlement bank details to an already-created account
+    // typically re-triggers Razorpay's own bank verification (a penny-drop
+    // deposit) - the account can drop out of "activated" until that clears,
+    // which is expected, not a bug here.
+    let product;
+    try {
+      product = await razorpay.products.edit(
+        shop.razorpayAccountId,
+        shop.razorpayRouteProductId,
+        {
+          settlements: {
+            account_number: app.bankAccountNumber,
+            ifsc_code: app.ifscCode,
+            beneficiary_name: app.bankName || "",
+          },
+        }
+      );
+    } catch (err) {
+      console.error("ROUTE BANK UPDATE FAILED", uid, err?.error || err);
+      throw new HttpsError(
+        "internal",
+        "Razorpay rejected the update: " + (err?.error?.description || err.message)
+      );
+    }
+
+    const routeStatus = product.activation_status || "pending";
+
+    await shopDoc.ref.update({
+      routeStatus,
+      routeActivatedAt:
+        routeStatus === "activated" ? admin.firestore.FieldValue.serverTimestamp() : null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log("ROUTE BANK DETAILS UPDATED", { uid, routeStatus });
+    return { routeStatus };
+  }
+);
+
 exports.onOrderCompleted = require("./analytics/onOrderCompleted").onOrderCompleted;
 exports.nightlyAggregation = require("./analytics/nightlyAggregation").nightlyAggregation;
 exports.seedMqCartTestData = require('./adminSeed').seedMqCartTestData;
