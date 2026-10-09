@@ -223,6 +223,9 @@ class OrderRemoteDS {
   Future<List<TransactionReportRow>> buildTransactionsReport({
     DateTime? startDate,
     DateTime? endDate,
+    String? sellerId,
+    String? societyId,
+    String? paymentMethod,
   }) async {
     Query query = _firestore.orders();
     if (startDate != null) {
@@ -234,9 +237,23 @@ class OrderRemoteDS {
           isLessThanOrEqualTo: Timestamp.fromDate(endDate));
     }
     final snap = await query.get();
-    final orders = snap.docs
+    var orders = snap.docs
         .map((d) => {...(d.data() as Map<String, dynamic>), 'id': d.id})
         .toList();
+
+    // Seller/society/payment-type filters applied client-side rather than
+    // as extra Firestore where() clauses - avoids needing composite
+    // indexes for every filter combination, and this is an admin tool
+    // over a modest dataset, not a hot path.
+    if (sellerId != null) {
+      orders = orders.where((o) => o['sellerId'] == sellerId).toList();
+    }
+    if (societyId != null) {
+      orders = orders.where((o) => o['societyId'] == societyId).toList();
+    }
+    if (paymentMethod != null) {
+      orders = orders.where((o) => o['paymentMethod'] == paymentMethod).toList();
+    }
 
     final sellerIds =
         orders.map((o) => o['sellerId'] as String).toSet().toList();

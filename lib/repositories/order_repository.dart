@@ -107,10 +107,16 @@ class OrderRepository {
   Future<List<TransactionReportRow>> buildTransactionsReport({
     DateTime? startDate,
     DateTime? endDate,
+    String? sellerId,
+    String? societyId,
+    String? paymentMethod,
   }) {
     return _remoteDS.buildTransactionsReport(
       startDate: startDate,
       endDate: endDate,
+      sellerId: sellerId,
+      societyId: societyId,
+      paymentMethod: paymentMethod,
     );
   }
 }
