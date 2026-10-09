@@ -74,6 +74,27 @@ class SellerApplicationRemoteDS {
   }
 
   /// ---------------------------------
+  /// UPDATE BANK DETAILS (SELLER, SELF-SERVICE)
+  /// Bank account/IFSC were optional at application time, so an
+  /// already-approved seller may have none on file - this lets them add or
+  /// update just those fields afterwards (needed before admin can set up
+  /// automatic Razorpay Route payouts). firestore.rules only allows this
+  /// specific field set to change once status is 'approved'.
+  /// ---------------------------------
+  Future<void> updateBankDetails(
+    String uid, {
+    required String bankAccountNumber,
+    required String ifscCode,
+    String? bankName,
+  }) async {
+    await _firestore.sellerApplications().doc(uid).update({
+      'bankAccountNumber': bankAccountNumber,
+      'ifscCode': ifscCode,
+      if (bankName != null) 'bankName': bankName,
+    });
+  }
+
+  /// ---------------------------------
   /// UPDATE SELLER APPLICATION STATUS (ADMIN)
   /// ---------------------------------
   Future<void> updateApplicationStatus(

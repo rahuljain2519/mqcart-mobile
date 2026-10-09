@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../models/shop_model.dart';
 import '../../repositories/shop_repository.dart';
 import '../../core/widgets/mq_network_image.dart';
+import '../../data/datasources/seller_application_remote_ds.dart';
 
 class EditShopScreen extends StatefulWidget {
   final ShopModel shop;
@@ -19,11 +20,20 @@ class EditShopScreen extends StatefulWidget {
 
 class _EditShopScreenState extends State<EditShopScreen> {
   final ShopRepository _repo = ShopRepository();
+  final SellerApplicationRemoteDS _applicationDS = SellerApplicationRemoteDS();
   final ImagePicker _picker = ImagePicker();
 
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _descCtrl;
+
+  // ----------------------------
+  // BANK DETAILS (seller_applications, not the shop doc - see
+  // SellerApplicationRemoteDS.updateBankDetails)
+  // ----------------------------
+  final _bankAccountCtrl = TextEditingController();
+  final _ifscCtrl = TextEditingController();
+  final _bankNameCtrl = TextEditingController();
 
   // ----------------------------
   // DELIVERY STATE
@@ -73,6 +83,15 @@ class _EditShopScreenState extends State<EditShopScreen> {
         TextEditingController(text: widget.shop.deliveryMinValue.toString());
     _deliveryMaxCtrl =
         TextEditingController(text: widget.shop.deliveryMaxValue.toString());
+
+    _applicationDS.getMyApplication(widget.shop.sellerId).then((app) {
+      if (!mounted || app == null) return;
+      setState(() {
+        _bankAccountCtrl.text = app.bankAccountNumber ?? '';
+        _ifscCtrl.text = app.ifscCode ?? '';
+        _bankNameCtrl.text = app.bankName ?? '';
+      });
+    });
   }
 
   // ----------------------------
@@ -131,6 +150,20 @@ class _EditShopScreenState extends State<EditShopScreen> {
         return;
       }
 
+      final bankAccount = _bankAccountCtrl.text.trim();
+      final ifsc = _ifscCtrl.text.trim();
+      if ((bankAccount.isNotEmpty || ifsc.isNotEmpty) &&
+          (bankAccount.isEmpty || ifsc.isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Enter both the account number and IFSC code, or leave both blank'),
+          ),
+        );
+        setState(() => _saving = false);
+        return;
+      }
+
       String logoUrl = widget.shop.logoUrl;
       String bannerUrl = widget.shop.bannerUrl;
 
@@ -179,6 +212,15 @@ class _EditShopScreenState extends State<EditShopScreen> {
 
       await _repo.updateShop(updatedShop);
 
+      if (bankAccount.isNotEmpty && ifsc.isNotEmpty) {
+        await _applicationDS.updateBankDetails(
+          widget.shop.sellerId,
+          bankAccountNumber: bankAccount,
+          ifscCode: ifsc.toUpperCase(),
+          bankName: _bankNameCtrl.text.trim(),
+        );
+      }
+
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
@@ -218,7 +260,51 @@ class _EditShopScreenState extends State<EditShopScreen> {
                     'Needed before we can set up automatic payouts to your bank account.',
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Bank account (for payouts)',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Optional at signup, but required before we can pay out '
+                    'your online orders automatically.',
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _bankAccountCtrl,
+                    decoration:
+                        const InputDecoration(labelText: 'Account number'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _ifscCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(labelText: 'IFSC code'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _bankNameCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Account holder name'),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
 
             TextField(
               controller: _descCtrl,
