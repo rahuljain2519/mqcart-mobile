@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -87,14 +88,36 @@ class _BannerCarouselState extends State<BannerCarousel> {
                       final b = banners[i];
                       return GestureDetector(
                         onTap: () => _openLink(b.linkUrl),
-                        child: Container(
-                          color: Colors.white,
-                          child: MQNetworkImage(
-                            url: b.imageUrl,
-                            fit: BoxFit.contain,
-                            width: double.infinity,
-                            height: double.infinity,
-                          ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // Blurred, scaled-up copy fills the frame behind
+                            // images that don't match this box's aspect
+                            // ratio, instead of leaving bare white space
+                            // either side of a letterboxed contain image.
+                            ClipRect(
+                              child: ImageFiltered(
+                                imageFilter:
+                                    ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                                child: Transform.scale(
+                                  scale: 1.2,
+                                  child: MQNetworkImage(
+                                    url: b.imageUrl,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Container(color: Colors.black.withOpacity(0.1)),
+                            MQNetworkImage(
+                              url: b.imageUrl,
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              height: double.infinity,
+                            ),
+                          ],
                         ),
                       );
                     },
