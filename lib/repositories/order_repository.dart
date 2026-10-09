@@ -1,5 +1,8 @@
 import '../data/datasources/order_remote_ds.dart';
 import '../models/order_model.dart';
+import '../models/settlement_model.dart';
+
+export '../data/datasources/order_remote_ds.dart' show UnsettledSellerTotal;
 
 class OrderRepository {
   final OrderRemoteDS _remoteDS = OrderRemoteDS();
@@ -66,5 +69,34 @@ class OrderRepository {
       orderId: orderId,
       status: status,
     );
+  }
+
+  /// ---------------------------
+  /// ADMIN: MANUAL SETTLEMENT (OPTION A)
+  /// ---------------------------
+  Future<List<UnsettledSellerTotal>> getUnsettledAmountsBySeller() {
+    return _remoteDS.getUnsettledAmountsBySeller();
+  }
+
+  Future<void> markOrdersSettled({
+    required String sellerId,
+    required String shopName,
+    required List<String> orderIds,
+    required double totalAmount,
+    required String settledBy,
+    String? note,
+  }) {
+    return _remoteDS.markOrdersSettled(
+      sellerId: sellerId,
+      shopName: shopName,
+      orderIds: orderIds,
+      totalAmount: totalAmount,
+      settledBy: settledBy,
+      note: note,
+    );
+  }
+
+  Future<List<SettlementModel>> getSettlementsForSeller(String sellerId) {
+    return _remoteDS.getSettlementsForSeller(sellerId);
   }
 }

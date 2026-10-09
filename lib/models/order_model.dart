@@ -19,6 +19,12 @@ class OrderModel {
   final String paymentMethod;
   final String paymentStatus;
 
+  // Manual settlement (Option A - see AdminSettlementsScreen). Only
+  // meaningful for paymentMethod 'razorpay' orders; COD orders are never
+  // settled through this since the seller already collected cash directly.
+  final bool settled;
+  final String? settlementId;
+
   OrderModel({
     required this.id,
     required this.buyerId,
@@ -36,6 +42,8 @@ class OrderModel {
      // 🆕 SAFE DEFAULTS (CRITICAL)
     this.paymentMethod = 'cod',
     this.paymentStatus = 'pending',
+    this.settled = false,
+    this.settlementId,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json, String id) {
@@ -56,6 +64,8 @@ class OrderModel {
       // 🆕 FALLBACK FOR OLD ORDERS
       paymentMethod: json['paymentMethod'] ?? 'cod',
       paymentStatus: json['paymentStatus'] ?? 'pending',
+      settled: json['settled'] ?? false,
+      settlementId: json['settlementId'],
     );
   }
 

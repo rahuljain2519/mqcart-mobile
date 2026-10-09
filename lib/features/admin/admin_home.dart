@@ -4,6 +4,7 @@ import 'admin_societies_screen.dart';
 import 'admin_users_screen.dart';
 import 'admin_seller_requests_screen.dart';
 import 'admin_analytics_home.dart';
+import 'admin_settlements_screen.dart';
 
 class AdminHome extends StatelessWidget {
   const AdminHome({super.key});
@@ -72,6 +73,18 @@ class AdminHome extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const AdminAnalyticsHome(),
+                      ),
+                    );
+                  },
+                ),
+                _AdminActionCard(
+                  icon: Icons.account_balance_wallet,
+                  label: 'Settlements',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminSettlementsScreen(),
                       ),
                     );
                   },
