@@ -87,11 +87,14 @@ class _BannerCarouselState extends State<BannerCarousel> {
                       final b = banners[i];
                       return GestureDetector(
                         onTap: () => _openLink(b.linkUrl),
-                        child: MQNetworkImage(
-                          url: b.imageUrl,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
+                        child: Container(
+                          color: Colors.white,
+                          child: MQNetworkImage(
+                            url: b.imageUrl,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
                         ),
                       );
                     },
