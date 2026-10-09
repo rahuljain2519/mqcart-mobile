@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/shop_model.dart';
 import '../../models/product_model.dart';
@@ -138,6 +139,24 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                       ],
                     ),
                   ),
+                  if (widget.shop.phone.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.call, color: mqOrange),
+                      tooltip: 'Call ${widget.shop.shopName}',
+                      onPressed: () async {
+                        final uri = Uri.parse('tel:${widget.shop.phone}');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri);
+                        } else if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content:
+                                  Text('Store phone: ${widget.shop.phone}'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
                 ],
               ),
             ),
