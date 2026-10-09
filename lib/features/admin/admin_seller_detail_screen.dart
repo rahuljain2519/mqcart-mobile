@@ -109,6 +109,37 @@ class AdminSellerDetailScreen extends StatelessWidget {
                       (context as Element).markNeedsBuild();
                     },
                   ),
+
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  _sectionTitle('Settlement (Razorpay Route)'),
+                  _infoTile('Status', shop.routeStatus ?? 'not set up'),
+                  const SizedBox(height: 8),
+                  if (shop.razorpayAccountId == null)
+                    OutlinedButton(
+                      onPressed: shop.email == null || shop.email!.isEmpty
+                          ? null
+                          : () => _createRouteAccount(context),
+                      child: const Text('Create Razorpay account'),
+                    )
+                  else
+                    OutlinedButton(
+                      onPressed: () => _refreshRouteStatus(context),
+                      child: const Text('Refresh status'),
+                    ),
+                  if (shop.email == null || shop.email!.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        "Seller hasn't added an email in Shop Settings yet — "
+                        'required before creating their Razorpay account.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
                 ],
 
                 const SizedBox(height: 24),
@@ -182,6 +213,58 @@ class AdminSellerDetailScreen extends StatelessWidget {
         Navigator.pop(context); // close the loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not delete seller: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _createRouteAccount(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('createSellerRouteAccount')
+          .call({'uid': user.uid});
+
+      if (context.mounted) {
+        Navigator.pop(context); // close the loading dialog
+        (context as Element).markNeedsBuild();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not create Razorpay account: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _refreshRouteStatus(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('refreshSellerRouteStatus')
+          .call({'uid': user.uid});
+
+      if (context.mounted) {
+        Navigator.pop(context);
+        (context as Element).markNeedsBuild();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not refresh status: $e')),
         );
       }
     }

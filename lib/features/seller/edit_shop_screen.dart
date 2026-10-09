@@ -22,6 +22,7 @@ class _EditShopScreenState extends State<EditShopScreen> {
   final ImagePicker _picker = ImagePicker();
 
   late TextEditingController _nameCtrl;
+  late TextEditingController _emailCtrl;
   late TextEditingController _descCtrl;
 
   // ----------------------------
@@ -63,6 +64,7 @@ class _EditShopScreenState extends State<EditShopScreen> {
     super.initState();
 
     _nameCtrl = TextEditingController(text: widget.shop.shopName);
+    _emailCtrl = TextEditingController(text: widget.shop.email ?? '');
     _descCtrl = TextEditingController(text: widget.shop.description);
 
     // DELIVERY INIT
@@ -156,18 +158,16 @@ class _EditShopScreenState extends State<EditShopScreen> {
         );
       }
 
-      final updatedShop = ShopModel(
-        shopId: widget.shop.shopId,
-        sellerId: widget.shop.sellerId,
-        societyId: widget.shop.societyId,
+      // copyWith (not a raw ShopModel(...)) so fields this screen doesn't
+      // edit - plan, productLimit, productCount, transactionFeePercent,
+      // email, razorpayAccountId, routeStatus, etc. - aren't silently
+      // reset to their constructor defaults on every save.
+      final updatedShop = widget.shop.copyWith(
         shopName: _nameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
         description: _descCtrl.text.trim(),
         logoUrl: logoUrl,
         bannerUrl: bannerUrl,
-        address: widget.shop.address,
-        phone: widget.shop.phone,
-        isActive: widget.shop.isActive,
-        isVerified: widget.shop.isVerified,
 
         // DELIVERY UPDATE
         deliveryUnit: _deliveryUnit,
@@ -206,6 +206,17 @@ class _EditShopScreenState extends State<EditShopScreen> {
             TextField(
               controller: _nameCtrl,
               decoration: const InputDecoration(labelText: 'Shop Name'),
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                helperText:
+                    'Needed before we can set up automatic payouts to your bank account.',
+              ),
             ),
             const SizedBox(height: 12),
 

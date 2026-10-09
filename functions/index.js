@@ -249,7 +249,7 @@ exports.createBuyerOrderPayment = onCall(
       );
     }
 
-    const { totalAmount } = snap.data();
+    const { totalAmount, shopId } = snap.data();
 
     if (typeof totalAmount !== "number" || totalAmount <= 0) {
       throw new HttpsError(
@@ -259,12 +259,35 @@ exports.createBuyerOrderPayment = onCall(
     }
 
     const razorpay = getRazorpayClient();
-
-    const order = await razorpay.orders.create({
-      amount: Math.round(totalAmount * 100),
+    const amountPaise = Math.round(totalAmount * 100);
+    const orderPayload = {
+      amount: amountPaise,
       currency: "INR",
       payment_capture: 1,
-    });
+    };
+
+    // Seller settlement (Route): if this shop has an activated Razorpay
+    // linked account, split the payment automatically at capture time so
+    // the seller's share lands directly in their own bank account - no
+    // manual transfer, no batch job. Shops without an activated account
+    // keep today's behavior unchanged (full amount stays in MQ Cart's
+    // account) rather than blocking online payment outright.
+    if (shopId) {
+      const shopSnap = await db.collection("shops").doc(shopId).get();
+      const shop = shopSnap.data();
+      if (shop?.razorpayAccountId && shop?.routeStatus === "activated") {
+        orderPayload.transfers = [
+          {
+            account: shop.razorpayAccountId,
+            amount: amountPaise, // commission deduction TBD - currently 100% to seller
+            currency: "INR",
+            on_hold: false,
+          },
+        ];
+      }
+    }
+
+    const order = await razorpay.orders.create(orderPayload);
 
     await paymentRef.update({
       razorpayOrderId: order.id,
@@ -614,6 +637,233 @@ exports.adminDeleteSeller = onCall(async (request) => {
 
   return { success: true };
 });
+
+/* =========================================================
+   💸 SELLER SETTLEMENT (RAZORPAY ROUTE)
+   Lets a seller's share of an online order move to their own bank
+   account automatically at payment-capture time, instead of sitting
+   in MQ Cart's Razorpay balance with no way out. Two admin-triggered
+   steps (one-time per seller) plus an automatic step (every payment):
+
+   1️⃣ createSellerRouteAccount — admin-only, one-time. Creates a
+      Razorpay "linked account" (Route) for the seller using the KYC
+      data already collected at seller_applications/{uid} (business
+      type, PAN, address, bank details) plus an email the seller adds
+      themselves in Shop Settings (Route requires one; nothing else
+      in this app collects email). Razorpay then reviews the account
+      (can take a few days) before it's usable for transfers.
+
+   2️⃣ refreshSellerRouteStatus — admin-only. Polls Razorpay for the
+      account's current Route activation status and updates the shop
+      doc. (No webhook listener for account.activated yet - this is
+      the simpler v1; a webhook can replace the manual refresh later
+      without changing anything else.)
+
+   3️⃣ createBuyerOrderPayment (existing function, modified below) —
+      once a shop has an activated Route account, every subsequent
+      online order automatically includes a `transfers` entry so
+      Razorpay splits the payment at capture time. Until then,
+      behavior is UNCHANGED from before this feature existed (full
+      amount stays in MQ Cart's account) - this was a deliberate
+      choice to avoid silently disabling online payment for every
+      existing seller the moment this ships.
+   ========================================================= */
+
+const ROUTE_BUSINESS_TYPE_MAP = {
+  "Individual": "individual",
+  "Proprietorship": "proprietorship",
+  "Partnership": "partnership",
+  "Private Limited": "private_limited",
+  "LLP": "llp",
+};
+
+exports.createSellerRouteAccount = onCall(
+  { secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET] },
+  async (request) => {
+    const callerUid = request.auth?.uid;
+    if (!callerUid) throw new HttpsError("unauthenticated", "Sign in required.");
+
+    const callerSnap = await db.collection("users").doc(callerUid).get();
+    if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+
+    const { uid } = request.data || {};
+    if (!uid) throw new HttpsError("invalid-argument", "uid is required.");
+
+    const [userSnap, appSnap, shopSnap] = await Promise.all([
+      db.collection("users").doc(uid).get(),
+      db.collection("seller_applications").doc(uid).get(),
+      db.collection("shops").where("sellerId", "==", uid).limit(1).get(),
+    ]);
+    if (!userSnap.exists) throw new HttpsError("not-found", "Seller not found.");
+    if (!appSnap.exists) {
+      throw new HttpsError("failed-precondition", "No seller application on file.");
+    }
+    if (shopSnap.empty) throw new HttpsError("failed-precondition", "Seller has no shop yet.");
+
+    const user = userSnap.data();
+    const app = appSnap.data();
+    const shopDoc = shopSnap.docs[0];
+    const shop = shopDoc.data();
+
+    if (!shop.email) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Seller must add an email in Shop Settings before a Razorpay account can be created."
+      );
+    }
+    if (!app.bankAccountNumber || !app.ifscCode) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Seller's application is missing bank account number / IFSC."
+      );
+    }
+    if (!app.panNumber) {
+      throw new HttpsError("failed-precondition", "Seller's application is missing a PAN number.");
+    }
+
+    const businessType = ROUTE_BUSINESS_TYPE_MAP[app.businessType] || "individual";
+    const tenDigitPhone = String(user.phone || "").replace(/\D/g, "").slice(-10);
+    const razorpay = getRazorpayClient();
+
+    let account;
+    try {
+      account = await razorpay.accounts.create({
+        email: shop.email,
+        phone: tenDigitPhone,
+        type: "standard",
+        business_type: businessType,
+        legal_business_name: app.shopName || shop.shopName,
+        customer_facing_business_name: shop.shopName,
+        contact_name: user.name || shop.shopName,
+        profile: {
+          category: "ecommerce",
+          subcategory: "grocery_stores",
+          addresses: {
+            registered: {
+              street1: app.addressLine || shop.address || "NA",
+              street2: "",
+              city: app.city || "NA",
+              state: app.state || "NA",
+              postal_code: app.pincode || "000000",
+              country: "IN",
+            },
+          },
+        },
+        legal_info: {
+          pan: app.panNumber,
+          ...(app.gstin ? { gst: app.gstin } : {}),
+          ...(app.registrationNumber ? { cin: app.registrationNumber } : {}),
+        },
+      });
+    } catch (err) {
+      console.error("ROUTE ACCOUNT CREATE FAILED", uid, err?.error || err);
+      throw new HttpsError(
+        "internal",
+        "Razorpay rejected the account: " + (err?.error?.description || err.message)
+      );
+    }
+
+    // Individual/Proprietorship need a stakeholder (the person themselves);
+    // registered-entity types still accept one and it's required either way
+    // for Route to proceed to the product-configuration step.
+    try {
+      await razorpay.stakeholders.create(account.id, {
+        name: user.name || shop.shopName,
+        email: shop.email,
+        kyc: { pan: app.panNumber },
+        phone: { primary: tenDigitPhone },
+      });
+    } catch (err) {
+      console.error("ROUTE STAKEHOLDER CREATE FAILED", uid, err?.error || err);
+      // Don't abort - the account exists and can be retried/fixed from the
+      // Razorpay dashboard directly; surfacing this as a warning, not fatal,
+      // keeps the account id we already have instead of losing it.
+    }
+
+    let productId = null;
+    let routeStatus = "pending";
+    try {
+      const product = await razorpay.products.requestProductConfiguration(account.id, {
+        product_name: "route",
+        tnc_accepted: true,
+      });
+      productId = product.id;
+
+      await razorpay.products.edit(account.id, productId, {
+        settlements: {
+          account_number: app.bankAccountNumber,
+          ifsc_code: app.ifscCode,
+          beneficiary_name: app.bankName || user.name || shop.shopName,
+        },
+      });
+    } catch (err) {
+      console.error("ROUTE PRODUCT CONFIG FAILED", uid, err?.error || err);
+      routeStatus = "needs_attention";
+    }
+
+    await shopDoc.ref.update({
+      razorpayAccountId: account.id,
+      razorpayRouteProductId: productId,
+      routeStatus,
+      routeRequestedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log("ROUTE ACCOUNT CREATED", { uid, accountId: account.id, routeStatus });
+    return { accountId: account.id, routeStatus };
+  }
+);
+
+exports.refreshSellerRouteStatus = onCall(
+  { secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET] },
+  async (request) => {
+    const callerUid = request.auth?.uid;
+    if (!callerUid) throw new HttpsError("unauthenticated", "Sign in required.");
+
+    const callerSnap = await db.collection("users").doc(callerUid).get();
+    if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+
+    const { uid } = request.data || {};
+    if (!uid) throw new HttpsError("invalid-argument", "uid is required.");
+
+    const shopSnap = await db.collection("shops").where("sellerId", "==", uid).limit(1).get();
+    if (shopSnap.empty) throw new HttpsError("not-found", "Seller has no shop.");
+    const shopDoc = shopSnap.docs[0];
+    const shop = shopDoc.data();
+    if (!shop.razorpayAccountId || !shop.razorpayRouteProductId) {
+      throw new HttpsError("failed-precondition", "No Razorpay Route account on file yet.");
+    }
+
+    const razorpay = getRazorpayClient();
+    let product;
+    try {
+      product = await razorpay.products.fetch(shop.razorpayAccountId, shop.razorpayRouteProductId);
+    } catch (err) {
+      console.error("ROUTE STATUS FETCH FAILED", uid, err?.error || err);
+      throw new HttpsError(
+        "internal",
+        "Could not fetch status from Razorpay: " + (err?.error?.description || err.message)
+      );
+    }
+
+    // Razorpay reports per-product activation as "activation_status":
+    // "activated" | "under_review" | "needs_clarification" | "rejected".
+    const routeStatus = product.activation_status || "pending";
+
+    await shopDoc.ref.update({
+      routeStatus,
+      routeActivatedAt:
+        routeStatus === "activated" ? admin.firestore.FieldValue.serverTimestamp() : null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { routeStatus };
+  }
+);
 
 exports.onOrderCompleted = require("./analytics/onOrderCompleted").onOrderCompleted;
 exports.nightlyAggregation = require("./analytics/nightlyAggregation").nightlyAggregation;

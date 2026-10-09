@@ -14,6 +14,18 @@ class ShopModel {
   final String address;
   final String phone;
 
+  // Seller-provided; required before an admin can create a Razorpay Route
+  // (linked account) for automatic settlement — nothing else in this app
+  // collects an email.
+  final String? email;
+
+  // Razorpay Route — set once an admin creates a linked account for this
+  // seller (see createSellerRouteAccount in functions/index.js).
+  final String? razorpayAccountId;
+  final String? razorpayRouteProductId;
+  // "pending" | "needs_attention" | "under_review" | "activated" | "rejected"
+  final String? routeStatus;
+
   // PLAN & LIMIT
   final String plan;
   final int productLimit;
@@ -43,6 +55,10 @@ class ShopModel {
     this.bannerUrl = '',
     this.address = '',
     this.phone = '',
+    this.email,
+    this.razorpayAccountId,
+    this.razorpayRouteProductId,
+    this.routeStatus,
 
     this.plan = 'free',
     this.productLimit = 10,
@@ -74,6 +90,10 @@ class ShopModel {
       bannerUrl: json['bannerUrl'] ?? '',
       address: json['address'] ?? '',
       phone: json['phone'] ?? '',
+      email: json['email'],
+      razorpayAccountId: json['razorpayAccountId'],
+      razorpayRouteProductId: json['razorpayRouteProductId'],
+      routeStatus: json['routeStatus'],
 
       plan: json['plan'] ?? 'free',
       productLimit: json['productLimit'] ?? 10,
@@ -105,6 +125,11 @@ class ShopModel {
       'bannerUrl': bannerUrl,
       'address': address,
       'phone': phone,
+      if (email != null) 'email': email,
+      if (razorpayAccountId != null) 'razorpayAccountId': razorpayAccountId,
+      if (razorpayRouteProductId != null)
+        'razorpayRouteProductId': razorpayRouteProductId,
+      if (routeStatus != null) 'routeStatus': routeStatus,
 
       'plan': plan,
       'productLimit': productLimit,
@@ -131,6 +156,10 @@ class ShopModel {
     String? bannerUrl,
     String? address,
     String? phone,
+    String? email,
+    String? razorpayAccountId,
+    String? razorpayRouteProductId,
+    String? routeStatus,
 
     String? plan,
     int? productLimit,
@@ -157,6 +186,11 @@ class ShopModel {
       bannerUrl: bannerUrl ?? this.bannerUrl,
       address: address ?? this.address,
       phone: phone ?? this.phone,
+      email: email ?? this.email,
+      razorpayAccountId: razorpayAccountId ?? this.razorpayAccountId,
+      razorpayRouteProductId:
+          razorpayRouteProductId ?? this.razorpayRouteProductId,
+      routeStatus: routeStatus ?? this.routeStatus,
 
       plan: plan ?? this.plan,
       productLimit: productLimit ?? this.productLimit,
