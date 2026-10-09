@@ -2,7 +2,8 @@ import '../data/datasources/order_remote_ds.dart';
 import '../models/order_model.dart';
 import '../models/settlement_model.dart';
 
-export '../data/datasources/order_remote_ds.dart' show UnsettledSellerTotal;
+export '../data/datasources/order_remote_ds.dart'
+    show UnsettledSellerTotal, TransactionReportRow;
 
 class OrderRepository {
   final OrderRemoteDS _remoteDS = OrderRemoteDS();
@@ -98,5 +99,18 @@ class OrderRepository {
 
   Future<List<SettlementModel>> getSettlementsForSeller(String sellerId) {
     return _remoteDS.getSettlementsForSeller(sellerId);
+  }
+
+  /// ---------------------------
+  /// ADMIN: TRANSACTION REPORT EXPORT
+  /// ---------------------------
+  Future<List<TransactionReportRow>> buildTransactionsReport({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    return _remoteDS.buildTransactionsReport(
+      startDate: startDate,
+      endDate: endDate,
+    );
   }
 }

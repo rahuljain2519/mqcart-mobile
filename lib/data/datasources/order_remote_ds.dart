@@ -18,6 +18,38 @@ class UnsettledSellerTotal {
   });
 }
 
+/// One row of the admin transaction report export (see
+/// OrderRemoteDS.buildTransactionsReport).
+class TransactionReportRow {
+  final String orderId;
+  final String date;
+  final String transactionType;
+  final String paymentStatus;
+  final String orderStatus;
+  final String societyName;
+  final String sellerName;
+  final String shopName;
+  final String bankAccountNumber;
+  final String ifscCode;
+  final String productDetails;
+  final double totalAmount;
+
+  TransactionReportRow({
+    required this.orderId,
+    required this.date,
+    required this.transactionType,
+    required this.paymentStatus,
+    required this.orderStatus,
+    required this.societyName,
+    required this.sellerName,
+    required this.shopName,
+    required this.bankAccountNumber,
+    required this.ifscCode,
+    required this.productDetails,
+    required this.totalAmount,
+  });
+}
+
 class OrderRemoteDS {
   final FirestoreService _firestore = FirestoreService();
 
@@ -182,5 +214,80 @@ class OrderRemoteDS {
               d.id,
             ))
         .toList();
+  }
+
+  /// Admin-only: every order (optionally date-bounded), enriched with the
+  /// seller's name and bank details for a full offline-reconciliation
+  /// report. Covers both COD and online orders - transactionType is the
+  /// column that tells them apart.
+  Future<List<TransactionReportRow>> buildTransactionsReport({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    Query query = _firestore.orders();
+    if (startDate != null) {
+      query = query.where('createdAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+    }
+    if (endDate != null) {
+      query = query.where('createdAt',
+          isLessThanOrEqualTo: Timestamp.fromDate(endDate));
+    }
+    final snap = await query.get();
+    final orders = snap.docs
+        .map((d) => {...(d.data() as Map<String, dynamic>), 'id': d.id})
+        .toList();
+
+    final sellerIds =
+        orders.map((o) => o['sellerId'] as String).toSet().toList();
+
+    final userDocs = await Future.wait(
+      sellerIds.map((uid) => _firestore.users().doc(uid).get()),
+    );
+    final appDocs = await Future.wait(
+      sellerIds.map((uid) => _firestore.sellerApplications().doc(uid).get()),
+    );
+
+    final nameById = <String, String>{};
+    for (var i = 0; i < sellerIds.length; i++) {
+      final data = userDocs[i].data() as Map<String, dynamic>?;
+      if (data != null) nameById[sellerIds[i]] = data['name'] ?? '';
+    }
+    final bankById = <String, (String, String)>{};
+    for (var i = 0; i < sellerIds.length; i++) {
+      final data = appDocs[i].data() as Map<String, dynamic>?;
+      if (data != null) {
+        bankById[sellerIds[i]] = (
+          data['bankAccountNumber'] ?? '',
+          data['ifscCode'] ?? '',
+        );
+      }
+    }
+
+    return orders.map((o) {
+      final sellerId = o['sellerId'] as String;
+      final bank = bankById[sellerId];
+      final items = List<Map<String, dynamic>>.from(o['items'] ?? []);
+      final createdAt = o['createdAt'];
+      return TransactionReportRow(
+        orderId: o['id'] ?? '',
+        date: createdAt is Timestamp
+            ? createdAt.toDate().toIso8601String()
+            : '',
+        transactionType: o['paymentMethod'] ?? '',
+        paymentStatus: o['paymentStatus'] ?? '',
+        orderStatus: o['status'] ?? '',
+        societyName: o['societyName'] ?? '',
+        sellerName: nameById[sellerId] ?? '',
+        shopName: o['shopName'] ?? '',
+        bankAccountNumber: bank?.$1 ?? '',
+        ifscCode: bank?.$2 ?? '',
+        productDetails: items
+            .map((it) =>
+                '${it['name']}${it['optionName'] != null ? ' (${it['optionName']})' : ''} x${it['quantity']} @ ₹${it['price']}')
+            .join('; '),
+        totalAmount: (o['totalAmount'] as num?)?.toDouble() ?? 0,
+      );
+    }).toList();
   }
 }
