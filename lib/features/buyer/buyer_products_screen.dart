@@ -4,7 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/shop_model.dart';
 import '../../models/product_model.dart';
+import '../../models/user_model.dart';
 import '../../repositories/product_repository.dart';
+import '../../repositories/user_repository.dart';
 import '../../services/cart_service.dart';
 import '../../core/widgets/mq_network_image.dart';
 import '../../core/widgets/clear_cart_dialog.dart';
@@ -26,6 +28,8 @@ class BuyerProductsScreen extends StatefulWidget {
 class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
   final ProductRepository productRepository = ProductRepository();
   final CartService cartService = CartService.instance;
+  final Future<UserModel?> _currentUserFuture =
+      UserRepository().getCurrentUser();
 
   static const Color mqOrange = Color(0xFFFF6A00);
   static const Color mqLightOrange = Color(0xFFFFF3E8);
@@ -35,6 +39,52 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // The Shops list already scopes to the buyer's own society, so this
+    // only triggers when this screen is reached out-of-band - e.g. a
+    // lingering entry on the navigation stack after switching societies in
+    // Profile - which otherwise let a buyer order from a shop in a
+    // different society entirely with no warning (order #3KHKZO).
+    return FutureBuilder<UserModel?>(
+      future: _currentUserFuture,
+      builder: (context, snapshot) {
+        final user = snapshot.data;
+        if (user != null &&
+            user.societyId.isNotEmpty &&
+            user.societyId != widget.shop.societyId) {
+          return Scaffold(
+            appBar: AppBar(title: Text(widget.shop.shopName)),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_off_outlined,
+                        size: 40, color: Colors.grey),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Not in your society',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      "This shop is in a different society than the one on "
+                      "your profile, so it isn't available to order from here.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        return _buildShopScreen(context);
+      },
+    );
+  }
+
+  Widget _buildShopScreen(BuildContext context) {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
