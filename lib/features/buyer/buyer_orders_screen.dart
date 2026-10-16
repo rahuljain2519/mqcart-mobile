@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../repositories/order_repository.dart';
 import '../../../repositories/product_repository.dart';
+import '../../../repositories/user_repository.dart';
 import '../../../models/order_model.dart';
 import 'buyer_product_detail_screen.dart';
 
@@ -216,14 +217,36 @@ class BuyerOrdersScreen extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 onPressed: () async {
-                  if (order.shopPhone.isEmpty) return;
+                  // shopPhone was never actually collected anywhere in shop
+                  // creation/edit (no phone field exists on the form), so
+                  // it's empty on every historical order - fall back to the
+                  // seller's own account phone, which is always set,
+                  // instead of silently doing nothing when tapped.
+                  String? phone =
+                      order.shopPhone.isNotEmpty ? order.shopPhone : null;
+                  if (phone == null) {
+                    try {
+                      final seller =
+                          await UserRepository().getUser(order.sellerId);
+                      phone = seller.phone.isNotEmpty ? seller.phone : null;
+                    } catch (_) {}
+                  }
+                  if (phone == null) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Store phone number not available')),
+                      );
+                    }
+                    return;
+                  }
 
-                  final uri = Uri.parse('tel:${order.shopPhone}');
+                  final uri = Uri.parse('tel:$phone');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri);
                   } else if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Store phone: ${order.shopPhone}')),
+                      SnackBar(content: Text('Store phone: $phone')),
                     );
                   }
                 },

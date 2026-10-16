@@ -189,24 +189,47 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                       ],
                     ),
                   ),
-                  if (widget.shop.phone.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(Icons.call, color: mqOrange),
-                      tooltip: 'Call ${widget.shop.shopName}',
-                      onPressed: () async {
-                        final uri = Uri.parse('tel:${widget.shop.phone}');
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri);
-                        } else if (context.mounted) {
+                  IconButton(
+                    icon: const Icon(Icons.call, color: mqOrange),
+                    tooltip: 'Call ${widget.shop.shopName}',
+                    onPressed: () async {
+                      // shop.phone was never actually collected anywhere in
+                      // shop creation/edit (no phone field exists on the
+                      // form), so it's empty for almost every shop - fall
+                      // back to the seller's own account phone, which is
+                      // always set, instead of hiding the button entirely.
+                      String? phone = widget.shop.phone.isNotEmpty
+                          ? widget.shop.phone
+                          : null;
+                      if (phone == null) {
+                        try {
+                          final seller = await UserRepository()
+                              .getUser(widget.shop.sellerId);
+                          phone =
+                              seller.phone.isNotEmpty ? seller.phone : null;
+                        } catch (_) {}
+                      }
+                      if (phone == null) {
+                        if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content:
-                                  Text('Store phone: ${widget.shop.phone}'),
-                            ),
+                            const SnackBar(
+                                content:
+                                    Text('Store phone number not available')),
                           );
                         }
-                      },
-                    ),
+                        return;
+                      }
+
+                      final uri = Uri.parse('tel:$phone');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri);
+                      } else if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Store phone: $phone')),
+                        );
+                      }
+                    },
+                  ),
                 ],
               ),
             ),

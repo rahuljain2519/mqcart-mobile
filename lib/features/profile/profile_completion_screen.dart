@@ -118,12 +118,15 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Only block back navigation during mandatory first-time completion -
+    // editing an already-complete profile (isEditMode) blocked it too,
+    // leaving no way back except Save.
     return WillPopScope(
-      onWillPop: () async => false,
+      onWillPop: () async => widget.isEditMode,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Complete Your Profile'),
-          automaticallyImplyLeading: false,
+          automaticallyImplyLeading: widget.isEditMode,
         ),
         body: Padding(
           padding: const EdgeInsets.all(16),

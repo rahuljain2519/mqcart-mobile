@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'orders_router.dart';
+import '../buyer/buyer_orders_screen.dart';
 
 class OrderSuccessScreen extends StatelessWidget {
   const OrderSuccessScreen({super.key});
@@ -75,10 +75,15 @@ class OrderSuccessScreen extends StatelessWidget {
                   ),
                 ),
                 onPressed: () {
+                  // This screen only ever follows a BUYER checkout, even
+                  // for a user who also happens to have a seller role -
+                  // going through the role-based OrdersRouter sent
+                  // seller-buyers to their Incoming Orders screen instead
+                  // of the purchase they just made.
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const OrdersRouter(),
+                      builder: (_) => const BuyerOrdersScreen(),
                     ),
                   );
                 },

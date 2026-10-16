@@ -100,11 +100,22 @@ class PaymentService {
 
   await _paymentRemoteDS.markPaymentFailed(
     paymentDocId: _paymentDocId!,
-    failureReason:
-        response.message ?? 'Payment cancelled',
+    failureReason: _describeFailure(response),
   );
 
   // reset so user can retry
   _paymentDocId = null;
 }
+}
+
+/// On a manual cancel (code 2 / BAD_REQUEST_ERROR), razorpay_flutter
+/// routinely hands back the literal string "undefined" as the message
+/// rather than null - `?? 'Payment cancelled'` doesn't catch that since
+/// it's a non-null string.
+String _describeFailure(PaymentFailureResponse response) {
+  final msg = response.message?.trim();
+  if (msg == null || msg.isEmpty || msg.toLowerCase() == 'undefined') {
+    return 'Payment cancelled';
+  }
+  return msg;
 }

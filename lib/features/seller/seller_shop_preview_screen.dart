@@ -179,14 +179,21 @@ class _SellerShopPreviewScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: mqLightOrange,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Center(
-                child: Icon(Icons.image, size: 40, color: Colors.grey),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: product.coverImage.isNotEmpty
+                  ? MQNetworkImage(
+                      url: product.coverImage,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                    )
+                  : Container(
+                      color: mqLightOrange,
+                      child: const Center(
+                        child: Icon(Icons.image, size: 40, color: Colors.grey),
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 8),
