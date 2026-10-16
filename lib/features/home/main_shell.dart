@@ -6,6 +6,7 @@ import 'home_router.dart';
 import '../buyer/buyer_shops_screen.dart';
 import '../orders/orders_router.dart';
 import '../profile/profile_router.dart';
+import '../profile/profile_completion_screen.dart';
 import '../../core/widgets/cart_badge.dart';
 import '../../repositories/user_repository.dart';
 import '../../repositories/society_repository.dart';
@@ -159,32 +160,53 @@ class _MainShellState extends State<MainShell> {
               const SizedBox(height: 6),
 
               /// 🔹 Address Row
-              Row(
-                children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 16,
-                    color: Colors.black87,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      addressText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500, // ⬆ Medium bold
-                        color: Colors.black87,
+              // A pencil icon, not a dropdown chevron - there's only ever
+              // one address per account (no saved-address list to pick
+              // from), and the chevron wrongly implied a selector that
+              // doesn't exist. Also now actually tappable - it previously
+              // had no handler at all, despite looking interactive.
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: user == null
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProfileCompletionScreen(
+                              user: user,
+                              isEditMode: true,
+                            ),
+                          ),
+                        );
+                      },
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 16,
+                      color: Colors.black87,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        addressText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500, // ⬆ Medium bold
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 18,
-                    color: Colors.black87,
-                  ),
-                ],
+                    const Icon(
+                      Icons.edit_outlined,
+                      size: 14,
+                      color: Colors.black54,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
