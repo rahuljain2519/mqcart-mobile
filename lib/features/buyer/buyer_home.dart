@@ -64,108 +64,130 @@ class _BuyerHomeState extends State<BuyerHome> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            /// 🔍 SEARCH BAR
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: TextField(
-                onChanged: (v) => setState(() => searchQuery = v),
-                decoration: InputDecoration(
-                  hintText:
-                      searchQuery.isEmpty ? _searchHints[_hintIndex] : null,
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: const Icon(Icons.mic),
-                  filled: true,
-                  fillColor: mqLightOrange,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
+            CustomScrollView(
+              slivers: [
+                /// 🔍 SEARCH BAR (pinned - stays reachable while browsing,
+                /// same as web's sticky search/category bar)
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _PinnedSearchBarDelegate(
+                    height: 80,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: TextField(
+                        onChanged: (v) => setState(() => searchQuery = v),
+                        decoration: InputDecoration(
+                          hintText: searchQuery.isEmpty
+                              ? _searchHints[_hintIndex]
+                              : null,
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: const Icon(Icons.mic),
+                          filled: true,
+                          fillColor: mqLightOrange,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
 
-            const SizedBox(height: 8),
+                /// 🟡 CATEGORY ROW - scrolls away with the banner/grid below,
+                /// instead of staying pinned above them forever.
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: CategoryScroller(
+                      selectedCategory: selectedCategory,
+                      onCategorySelected: (cat) {
+                        setState(() {
+                          selectedCategory = cat;
+                        });
+                      },
+                    ),
+                  ),
+                ),
 
-            /// 🟡 CATEGORY ROW (UNCHANGED)
-            CategoryScroller(
-              selectedCategory: selectedCategory,
-              onCategorySelected: (cat) {
-                setState(() {
-                  selectedCategory = cat;
-                });
-              },
-            ),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-            const SizedBox(height: 8),
+                /// 🖼 LANDING PAGE BANNERS (admin-managed) - now part of the
+                /// same scroll view as the product grid, so it moves up and
+                /// out of the way while browsing instead of staying fixed.
+                const SliverToBoxAdapter(child: BannerCarousel()),
 
-            /// 🖼 LANDING PAGE BANNERS (admin-managed)
-            const BannerCarousel(),
+                // "Become a seller" CTA removed from here - it was a large,
+                // redundant card duplicating the compact storefront icon
+                // MainShell already shows next to the cart badge in the home
+                // header for the same buyer/sellerStatus=='none' condition.
 
-            // "Become a seller" CTA removed from here - it was a large,
-            // redundant card duplicating the compact storefront icon
-            // MainShell already shows next to the cart badge in the home
-            // header for the same buyer/sellerStatus=='none' condition.
+                FutureBuilder<UserModel?>(
+                  future: userRepo.getCurrentUser(),
+                  builder: (context, userSnap) {
+                    if (!userSnap.hasData) {
+                      return const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
 
-            Expanded(
-              child: FutureBuilder<UserModel?>(
-                future: userRepo.getCurrentUser(),
-                builder: (context, userSnap) {
-                  if (!userSnap.hasData) {
-                    return const Center(
-                        child: CircularProgressIndicator());
-                  }
+                    final user = userSnap.data!;
+                    if (user.societyId.isEmpty) {
+                      return const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                            child: Text('Please complete your profile')),
+                      );
+                    }
 
-                  final user = userSnap.data!;
-                  if (user.societyId.isEmpty) {
-                    return const Center(
-                        child: Text('Please complete your profile'));
-                  }
-
-                  /// ✅ REALTIME PRODUCTS BY SOCIETY
-                  return StreamBuilder<List<ProductModel>>(
-                    stream: productRepo
-                        .streamProductsForSociety(user.societyId),
-                    builder: (context, productSnap) {
-                      if (!productSnap.hasData) {
-                        return const Center(
-                            child: CircularProgressIndicator());
-                      }
-
-                      /// ✅ FINAL FILTER LOGIC (UNCHANGED)
-                      final products = productSnap.data!.where((p) {
-                        final matchesSearch = searchQuery.isEmpty ||
-                            p.name
-                                .toLowerCase()
-                                .contains(searchQuery.toLowerCase());
-
-                        if (selectedCategory == 'All') {
-                          return matchesSearch;
+                    /// ✅ REALTIME PRODUCTS BY SOCIETY
+                    return StreamBuilder<List<ProductModel>>(
+                      stream: productRepo
+                          .streamProductsForSociety(user.societyId),
+                      builder: (context, productSnap) {
+                        if (!productSnap.hasData) {
+                          return const SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(child: CircularProgressIndicator()),
+                          );
                         }
 
-                        // Exact match after normalising legacy category names.
-                        final matchesCategory =
-                            normalizeCategory(p.category) == selectedCategory;
+                        /// ✅ FINAL FILTER LOGIC (UNCHANGED)
+                        final products = productSnap.data!.where((p) {
+                          final matchesSearch = searchQuery.isEmpty ||
+                              p.name
+                                  .toLowerCase()
+                                  .contains(searchQuery.toLowerCase());
 
-                        return matchesSearch && matchesCategory;
-                      }).toList();
+                          if (selectedCategory == 'All') {
+                            return matchesSearch;
+                          }
 
-                      if (products.isEmpty) {
-                        return const Center(
-                          child: Text(
-                            'No products found',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        );
-                      }
+                          // Exact match after normalising legacy category names.
+                          final matchesCategory =
+                              normalizeCategory(p.category) == selectedCategory;
 
-                      return Stack(
-                        children: [
-                          GridView.builder(
-                            padding:
-                                const EdgeInsets.fromLTRB(12, 0, 12, 120),
-                            itemCount: products.length,
+                          return matchesSearch && matchesCategory;
+                        }).toList();
+
+                        if (products.isEmpty) {
+                          return const SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(
+                              child: Text(
+                                'No products found',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 120),
+                          sliver: SliverGrid(
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
@@ -173,7 +195,8 @@ class _BuyerHomeState extends State<BuyerHome> {
                               crossAxisSpacing: 12,
                               childAspectRatio: 0.70,
                             ),
-                            itemBuilder: (context, index) {
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
                               final product = products[index];
 
                               // Rebuilds on every cart change (add/increase/
@@ -415,88 +438,108 @@ class _BuyerHomeState extends State<BuyerHome> {
                               );
                                 },
                               );
-                            },
+                              },
+                              childCount: products.length,
+                            ),
                           ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
 
-                          /// 🟠 CART BAR (UNCHANGED LOGIC)
-                          ValueListenableBuilder<int>(
-                            valueListenable:
-                                cartService.cartItemCount,
-                            builder: (context, _, __) {
-                              if (cartService.isEmpty) {
-                                return const SizedBox();
-                              }
+            /// 🟠 CART BAR (UNCHANGED LOGIC) - overlays the whole scroll
+            /// view now, rather than just the grid portion of an inner Stack.
+            ValueListenableBuilder<int>(
+              valueListenable: cartService.cartItemCount,
+              builder: (context, _, __) {
+                if (cartService.isEmpty) {
+                  return const SizedBox();
+                }
 
-                              return Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: SafeArea(
-                                  top: false,
-                                  child: Container(
-                                    padding:
-                                        const EdgeInsets.all(16),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          blurRadius: 6,
-                                          color: Colors.black12,
-                                          offset:
-                                              Offset(0, -2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment
-                                              .spaceBetween,
-                                      children: [
-                                        Text(
-                                          '${cartService.totalItems} Items  ₹${cartService.totalAmount}',
-                                          style: const TextStyle(
-                                              fontWeight:
-                                                  FontWeight.bold),
-                                        ),
-                                        ElevatedButton(
-                                          style:
-                                              ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                mqOrange,
-                                          ),
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const CartScreen(),
-                                              ),
-                                            );
-                                          },
-                                          child: const Text(
-                                            'View Cart',
-                                            style: TextStyle(
-                                                color:
-                                                    Colors.white),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                return Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            blurRadius: 6,
+                            color: Colors.black12,
+                            offset: Offset(0, -2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${cartService.totalItems} Items  ₹${cartService.totalAmount}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: mqOrange,
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const CartScreen(),
                                 ),
                               );
                             },
+                            child: const Text(
+                              'View Cart',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ),
                         ],
-                      );
-                    },
-                  );
-                },
-              ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+/// Keeps the search bar visible while the category row/banner/product grid
+/// scroll beneath it - same purpose as the sticky search+category bar on
+/// web, just built with a SliverPersistentHeader since Flutter has no
+/// built-in CSS-position:sticky equivalent for an arbitrary child widget.
+class _PinnedSearchBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+
+  _PinnedSearchBarDelegate({required this.child, required this.height});
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(color: Colors.white, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedSearchBarDelegate oldDelegate) {
+    return true;
   }
 }
