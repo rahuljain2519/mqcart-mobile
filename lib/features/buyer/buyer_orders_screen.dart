@@ -49,6 +49,8 @@ class BuyerOrdersScreen extends StatelessWidget {
               orders.where((o) => o.status == 'delivered');
           final rejectedOrders =
               orders.where((o) => o.status == 'rejected');
+          final cancelledOrders =
+              orders.where((o) => o.status == 'cancelled');
 
           return ListView(
             padding: const EdgeInsets.only(bottom: 16),
@@ -64,6 +66,10 @@ class BuyerOrdersScreen extends StatelessWidget {
               if (rejectedOrders.isNotEmpty) ...[
                 _sectionTitle('REJECTED'),
                 ...rejectedOrders.map((o) => _buildOrderCard(context, o)),
+              ],
+              if (cancelledOrders.isNotEmpty) ...[
+                _sectionTitle('CANCELLED'),
+                ...cancelledOrders.map((o) => _buildOrderCard(context, o)),
               ],
             ],
           );
@@ -164,6 +170,22 @@ class BuyerOrdersScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             _orderTimeline(order.status),
+
+            if (order.status == 'rejected' &&
+                order.rejectionReason != null &&
+                order.rejectionReason!.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Declined by the seller: ${order.rejectionReason}',
+                  style: const TextStyle(fontSize: 13, color: Colors.red),
+                ),
+              ),
           ],
         ),
         children: [
@@ -250,6 +272,22 @@ class BuyerOrdersScreen extends StatelessWidget {
                     );
                   }
                 },
+              ),
+            ),
+
+          // ---------------------------
+          // CANCEL ORDER (buyer, only before the seller accepts)
+          // ---------------------------
+          if (order.status == 'placed')
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                ),
+                onPressed: () => _confirmCancel(context, order),
+                child: const Text('Cancel order'),
               ),
             ),
 
@@ -363,6 +401,10 @@ class BuyerOrdersScreen extends StatelessWidget {
         color = Colors.red;
         label = 'REJECTED';
         break;
+      case 'cancelled':
+        color = Colors.grey;
+        label = 'CANCELLED';
+        break;
       default:
         color = Colors.grey;
         label = status.toUpperCase();
@@ -391,5 +433,53 @@ class BuyerOrdersScreen extends StatelessWidget {
   String _shortOrderId(String id) {
     if (id.isEmpty || id.length < 6) return '';
     return '#${id.substring(id.length - 6).toUpperCase()}';
+  }
+
+  // ---------------------------
+  // CANCEL ORDER (buyer-initiated, only while still "placed")
+  // ---------------------------
+  Future<void> _confirmCancel(BuildContext context, OrderModel order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel this order?'),
+        content: const Text(
+          "The seller hasn't accepted it yet. This can't be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep order'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Cancel order'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Restock the same way a seller rejection does - checkout already
+    // reduced stock for these items, so leaving it cancelled without
+    // putting it back would leak stock on every buyer cancellation.
+    await ProductRepository().restockAfterOrderCancel(
+      order.items.map((item) {
+        return {
+          'productId': item['productId'],
+          'quantity': item['quantity'],
+          if (item['optionName'] != null) 'optionName': item['optionName'],
+        };
+      }).toList(),
+    );
+    await OrderRepository().updateOrderStatus(
+      orderId: order.id,
+      status: 'cancelled',
+    );
   }
 }

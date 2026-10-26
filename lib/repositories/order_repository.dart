@@ -72,6 +72,13 @@ class OrderRepository {
     );
   }
 
+  Future<void> rejectOrder({
+    required String orderId,
+    required String reason,
+  }) {
+    return _remoteDS.rejectOrder(orderId: orderId, reason: reason);
+  }
+
   /// ---------------------------
   /// ADMIN: MANUAL SETTLEMENT (OPTION A)
   /// ---------------------------

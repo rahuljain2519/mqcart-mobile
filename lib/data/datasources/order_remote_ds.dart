@@ -138,6 +138,18 @@ class OrderRemoteDS {
     });
   }
 
+  /// Seller declines an order - a reason is required so the buyer knows why.
+  Future<void> rejectOrder({
+    required String orderId,
+    required String reason,
+  }) async {
+    await _firestore.orders().doc(orderId).update({
+      'status': 'rejected',
+      'rejectionReason': reason,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   /// ---------------------------------
   /// MANUAL SETTLEMENT (ADMIN, OPTION A)
   /// Online orders collect 100% into MQ Cart's Razorpay account with no

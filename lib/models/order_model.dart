@@ -11,7 +11,9 @@ class OrderModel {
   final String shopPhone;
   final List<Map<String, dynamic>> items;
   final double totalAmount;
-  final String status; // placed | accepted | delivered
+  final String status; // placed | accepted | delivered | rejected | cancelled
+  /// Set when status is 'rejected' - why the seller declined the order.
+  final String? rejectionReason;
 
   final Timestamp? createdAt;
   final Timestamp? updatedAt;
@@ -44,6 +46,7 @@ class OrderModel {
     this.paymentStatus = 'pending',
     this.settled = false,
     this.settlementId,
+    this.rejectionReason,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json, String id) {
@@ -66,6 +69,7 @@ class OrderModel {
       paymentStatus: json['paymentStatus'] ?? 'pending',
       settled: json['settled'] ?? false,
       settlementId: json['settlementId'],
+      rejectionReason: json['rejectionReason'],
     );
   }
 

@@ -83,6 +83,10 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
               orders.where((o) => o.status == 'delivered').toList();
           final rejectedOrders =
               orders.where((o) => o.status == 'rejected').toList();
+          // Buyer backed out before acceptance - distinct from Rejected
+          // (seller declined) so it's clear whose call it was.
+          final cancelledOrders =
+              orders.where((o) => o.status == 'cancelled').toList();
 
           if (newOrders.length > _lastNewOrderCount) {
             _player.play(AssetSource('sounds/new_order.mp3'));
@@ -107,6 +111,10 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
               if (rejectedOrders.isNotEmpty) ...[
                 _sectionTitle('REJECTED'),
                 ...rejectedOrders.map(_buildOrderCard),
+              ],
+              if (cancelledOrders.isNotEmpty) ...[
+                _sectionTitle('CANCELLED'),
+                ...cancelledOrders.map(_buildOrderCard),
               ],
             ],
           );
@@ -266,11 +274,35 @@ class _OrderActions extends StatelessWidget {
     }
 
     if (order.status == 'rejected') {
+      return Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Order Rejected',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+            if (order.rejectionReason != null &&
+                order.rejectionReason!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'You rejected this: ${order.rejectionReason}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    if (order.status == 'cancelled') {
       return const Padding(
         padding: EdgeInsets.all(8),
         child: Text(
-          'Order Rejected',
-          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+          'Cancelled by buyer',
+          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
         ),
       );
     }
@@ -295,23 +327,7 @@ class _OrderActions extends StatelessWidget {
               foregroundColor: Colors.red,
               side: const BorderSide(color: Colors.red),
             ),
-            onPressed: () async {
-              await ProductRepository().restockAfterOrderCancel(
-                order.items.map((item) {
-                  return {
-                    'productId': item['productId'],
-                    'quantity': item['quantity'],
-                    if (item['optionName'] != null)
-                      'optionName': item['optionName'],
-                  };
-                }).toList(),
-              );
-
-              await repo.updateOrderStatus(
-                orderId: order.id,
-                status: 'rejected',
-              );
-            },
+            onPressed: () => _showRejectDialog(context, order, repo),
             child: const Text('Reject'),
           ),
         if (order.status == 'accepted')
@@ -328,4 +344,85 @@ class _OrderActions extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Asks the seller for a reason before rejecting - the buyer sees this on
+/// their order, matching the web admin flow. Restocks first (checkout
+/// already reduced stock for these items), same as the old unprompted
+/// reject did.
+Future<void> _showRejectDialog(
+  BuildContext context,
+  OrderModel order,
+  OrderRepository repo,
+) async {
+  final controller = TextEditingController();
+  String? errorText;
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setState) {
+          return AlertDialog(
+            title: const Text('Reject this order?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Tell the buyer why - they'll see this reason on their order.",
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Out of stock, shop closed today…',
+                    border: const OutlineInputBorder(),
+                    errorText: errorText,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Keep order'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final reason = controller.text.trim();
+                  if (reason.isEmpty) {
+                    setState(() => errorText = 'Enter a reason for the buyer.');
+                    return;
+                  }
+
+                  await ProductRepository().restockAfterOrderCancel(
+                    order.items.map((item) {
+                      return {
+                        'productId': item['productId'],
+                        'quantity': item['quantity'],
+                        if (item['optionName'] != null)
+                          'optionName': item['optionName'],
+                      };
+                    }).toList(),
+                  );
+                  await repo.rejectOrder(orderId: order.id, reason: reason);
+
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                },
+                child: const Text('Reject order'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
