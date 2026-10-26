@@ -327,21 +327,55 @@ class _BuyerHomeState extends State<BuyerHome> {
                                                   ),
                                                 ),
                                                 qty == 0
-                                                    ? OutlinedButton(
-                                                        style:
-                                                            OutlinedButton
-                                                                .styleFrom(
-                                                          foregroundColor:
-                                                              mqOrange,
-                                                          side:
-                                                              const BorderSide(
-                                                                  color:
-                                                                      mqOrange),
-                                                        ),
-                                                        onPressed:
-                                                            outOfStock
-                                                                ? null
-                                                                : () async {
+                                                    ? (outOfStock
+                                                        // A faded version of
+                                                        // the same orange
+                                                        // button read as
+                                                        // nearly identical to
+                                                        // the active "ADD"
+                                                        // state - this gets
+                                                        // its own distinct
+                                                        // grey pill instead.
+                                                        ? Container(
+                                                            padding: const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 10,
+                                                                vertical: 6),
+                                                            decoration: BoxDecoration(
+                                                              color: Colors
+                                                                  .grey
+                                                                  .shade300,
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          20),
+                                                            ),
+                                                            child: Text(
+                                                              'SOLD OUT',
+                                                              style:
+                                                                  TextStyle(
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: Colors
+                                                                    .grey
+                                                                    .shade700,
+                                                              ),
+                                                            ),
+                                                          )
+                                                        : OutlinedButton(
+                                                            style:
+                                                                OutlinedButton
+                                                                    .styleFrom(
+                                                              foregroundColor:
+                                                                  mqOrange,
+                                                              side:
+                                                                  const BorderSide(
+                                                                      color:
+                                                                          mqOrange),
+                                                            ),
+                                                            onPressed: () async {
                                                                       if (product.hasOptions) {
                                                                         Navigator.push(
                                                                           context,
@@ -364,11 +398,11 @@ class _BuyerHomeState extends State<BuyerHome> {
                                                                         }
                                                                       }
                                                                     },
-                                                        child: Text(
-                                                            product.hasOptions
-                                                                ? 'OPTIONS'
-                                                                : 'ADD'),
-                                                      )
+                                                            child: Text(
+                                                                product.hasOptions
+                                                                    ? 'OPTIONS'
+                                                                    : 'ADD'),
+                                                          ))
                                                     : Row(
                                                         children: [
                                                           IconButton(
