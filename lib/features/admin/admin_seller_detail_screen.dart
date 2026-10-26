@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/user_model.dart';
 import '../../models/shop_model.dart';
@@ -103,6 +104,7 @@ class AdminSellerDetailScreen extends StatelessWidget {
                       await shopRepository.toggleShopWithProducts(
                           shopId: shop.shopId,
                           makeActive: value,
+                          toggledBy: FirebaseAuth.instance.currentUser?.uid,
                         );
 
                       // force refresh

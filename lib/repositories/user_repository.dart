@@ -76,7 +76,7 @@ class UserRepository {
   }
 
   /// 🔹 Approve seller
-  Future<void> approveSeller(String uid) async {
+  Future<void> approveSeller(String uid, {String? decidedBy}) async {
     // 1️⃣ Update USER → APPROVED (SellerOnboardingScreen gates shop
     // creation on this exact status, then flips it to 'active' itself).
     await _remoteDS.updateUserFields(uid, {
@@ -91,11 +91,12 @@ class UserRepository {
     await _sellerAppDS.updateApplicationStatus(
       uid,
       status: 'approved',
+      decidedBy: decidedBy,
     );
   }
 
   /// 🔹 Reject seller (FINAL FIX)
-  Future<void> rejectSeller(String uid) async {
+  Future<void> rejectSeller(String uid, {String? decidedBy}) async {
     // 1️⃣ Update USER → REJECTED
     await _remoteDS.updateUserFields(uid, {
       'sellerStatus': 'rejected',
@@ -107,6 +108,7 @@ class UserRepository {
     await _sellerAppDS.updateApplicationStatus(
       uid,
       status: 'rejected',
+      decidedBy: decidedBy,
     );
   }
 

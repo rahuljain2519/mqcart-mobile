@@ -401,6 +401,14 @@ exports.razorpayWebhook = onRequest(
         }, { merge: true });
 
       console.log("SHOP ACTIVATED VIA WEBHOOK", { shopId, plan });
+
+      await require("./activityLog").logActivity({
+        actorId: sellerId,
+        action: "seller.activation_payment_completed",
+        targetType: "shop",
+        targetId: shopId,
+        metadata: { plan, productLimit },
+      });
     }
 
     return res.sendStatus(200);
@@ -634,6 +642,14 @@ exports.adminDeleteSeller = onCall(async (request) => {
   });
 
   console.log("SELLER DELETED BY ADMIN", { uid, admin: callerUid });
+
+  await require("./activityLog").logActivity({
+    actorId: callerUid,
+    action: "seller.deleted",
+    targetType: "user",
+    targetId: uid,
+    metadata: {},
+  });
 
   return { success: true };
 });
@@ -947,6 +963,18 @@ exports.onOrderCompleted = require("./analytics/onOrderCompleted").onOrderComple
 exports.nightlyAggregation = require("./analytics/nightlyAggregation").nightlyAggregation;
 exports.seedMqCartTestData = require('./adminSeed').seedMqCartTestData;
 exports.cleanupMqCartTestData = require('./adminCleanup').cleanupMqCartTestData;
+
+/* 📋 Activity log (Phase 1) - see activityLog.js */
+const activityLog = require("./activityLog");
+exports.logOrderPlaced = activityLog.logOrderPlaced;
+exports.logOrderStatusChange = activityLog.logOrderStatusChange;
+exports.logSellerApplicationSubmitted = activityLog.logSellerApplicationSubmitted;
+exports.logSellerApplicationDecision = activityLog.logSellerApplicationDecision;
+exports.logProductChange = activityLog.logProductChange;
+exports.logShopCreated = activityLog.logShopCreated;
+exports.logShopToggled = activityLog.logShopToggled;
+exports.logSettlementCreated = activityLog.logSettlementCreated;
+exports.logProfileAddressChanged = activityLog.logProfileAddressChanged;
 
 
 
