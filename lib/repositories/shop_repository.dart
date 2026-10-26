@@ -158,6 +158,7 @@ class ShopRepository {
   Future<void> toggleShopWithProducts({
     required String shopId,
     required bool makeActive,
+    String? toggledBy,
   }) async {
     final firestore = FirebaseFirestore.instance;
     final batch = firestore.batch();
@@ -168,6 +169,9 @@ class ShopRepository {
     batch.update(shopRef, {
       'isActive': makeActive,
       'status': makeActive ? 'ACTIVE' : 'INACTIVE',
+      // Read by the activity-log Cloud Function trigger on this collection
+      // to attribute the toggle to the admin who made it.
+      if (toggledBy != null) 'lastToggledBy': toggledBy,
     });
 
     // 2️⃣ Fetch products

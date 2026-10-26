@@ -100,6 +100,7 @@ class SellerApplicationRemoteDS {
   Future<void> updateApplicationStatus(
     String uid, {
     required String status,
+    String? decidedBy,
   }) async {
     // 1️⃣ Update seller application
     await _firestore.sellerApplications().doc(uid).update({
@@ -107,6 +108,10 @@ class SellerApplicationRemoteDS {
       'updatedAt': DateTime.now(),
       if (status == 'approved') 'approvedAt': DateTime.now(),
       if (status == 'rejected') 'rejectedAt': DateTime.now(),
+      // Read by the activity-log Cloud Function trigger on this collection
+      // to attribute the decision to the admin who made it - a plain
+      // Firestore trigger has no auth context of its own to fall back on.
+      if (decidedBy != null) 'decidedBy': decidedBy,
     });
 
     // 2️⃣ Sync user sellerStatus (CRITICAL)

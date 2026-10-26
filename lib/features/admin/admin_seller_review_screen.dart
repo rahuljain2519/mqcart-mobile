@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/user_model.dart';
 import '../../models/seller_application_model.dart';
@@ -75,7 +76,10 @@ class AdminSellerReviewScreen extends StatelessWidget {
                           backgroundColor: Colors.green,
                         ),
                         onPressed: () async {
-                          await UserRepository().approveSeller(user.uid);
+                          await UserRepository().approveSeller(
+                            user.uid,
+                            decidedBy: FirebaseAuth.instance.currentUser?.uid,
+                          );
                           if (context.mounted) Navigator.pop(context);
                         },
                         child: const Text('Approve'),
@@ -88,7 +92,10 @@ class AdminSellerReviewScreen extends StatelessWidget {
                           backgroundColor: Colors.red,
                         ),
                         onPressed: () async {
-                          await UserRepository().rejectSeller(user.uid);
+                          await UserRepository().rejectSeller(
+                            user.uid,
+                            decidedBy: FirebaseAuth.instance.currentUser?.uid,
+                          );
                           if (context.mounted) Navigator.pop(context);
                         },
                         child: const Text('Reject'),
