@@ -24,6 +24,14 @@ class OrderModel {
   final Timestamp? deliveredAt;
   final Timestamp? rejectedAt;
   final Timestamp? cancelledAt;
+  // Set server-side only (refundCancelledOrRejectedOrder trigger +
+  // razorpayWebhook's refund.processed/failed branch) when a "razorpay"
+  // order is cancelled/rejected after payment - never present on "cod".
+  final String? refundStatus; // initiated | completed | failed
+  final String? razorpayRefundId;
+  final Timestamp? refundInitiatedAt;
+  final Timestamp? refundedAt;
+  final String? refundFailureReason;
   // 🆕 PAYMENT FIELDS (ADD ONLY)
   final String paymentMethod;
   final String paymentStatus;
@@ -56,6 +64,11 @@ class OrderModel {
     this.deliveredAt,
     this.rejectedAt,
     this.cancelledAt,
+    this.refundStatus,
+    this.razorpayRefundId,
+    this.refundInitiatedAt,
+    this.refundedAt,
+    this.refundFailureReason,
      // 🆕 SAFE DEFAULTS (CRITICAL)
     this.paymentMethod = 'cod',
     this.paymentStatus = 'pending',
@@ -84,6 +97,11 @@ class OrderModel {
       deliveredAt: json['deliveredAt'],
       rejectedAt: json['rejectedAt'],
       cancelledAt: json['cancelledAt'],
+      refundStatus: json['refundStatus'],
+      razorpayRefundId: json['razorpayRefundId'],
+      refundInitiatedAt: json['refundInitiatedAt'],
+      refundedAt: json['refundedAt'],
+      refundFailureReason: json['refundFailureReason'],
       // 🆕 FALLBACK FOR OLD ORDERS
       paymentMethod: json['paymentMethod'] ?? 'cod',
       paymentStatus: json['paymentStatus'] ?? 'pending',

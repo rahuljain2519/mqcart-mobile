@@ -432,6 +432,45 @@ exports.razorpayWebhook = onRequest(
         targetId: shopId,
         metadata: { plan, productLimit },
       });
+    } else if (
+      req.body.event === "refund.processed" ||
+      req.body.event === "refund.failed"
+    ) {
+      // Confirms the outcome of a refund refundCancelledOrRejectedOrder
+      // (refunds.js) already initiated - a refund can take days to
+      // actually settle, so the initiating write only ever sets
+      // refundStatus:"initiated"; this is what flips it to its final
+      // completed/failed state.
+      const refund = req.body.payload.refund.entity;
+      const orderSnap = await db
+        .collection("orders")
+        .where("razorpayPaymentId", "==", refund.payment_id)
+        .limit(1)
+        .get();
+
+      if (!orderSnap.empty) {
+        const orderDoc = orderSnap.docs[0];
+        const completed = req.body.event === "refund.processed";
+
+        await orderDoc.ref.update({
+          refundStatus: completed ? "completed" : "failed",
+          razorpayRefundId: refund.id,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          ...(completed
+            ? { refundedAt: admin.firestore.FieldValue.serverTimestamp() }
+            : { refundFailureReason: "Refund failed at Razorpay" }),
+        });
+
+        await require("./activityLog").logActivity({
+          actorId: orderDoc.data().buyerId,
+          action: completed ? "order.refund_completed" : "order.refund_failed",
+          targetType: "order",
+          targetId: orderDoc.id,
+          metadata: { amount: refund.amount / 100 },
+        });
+
+        console.log("REFUND WEBHOOK", { orderId: orderDoc.id, event: req.body.event });
+      }
     }
 
     return res.sendStatus(200);
@@ -1004,6 +1043,9 @@ exports.onReviewCreated = require("./reviews").onReviewCreated;
 
 /* ⏳ Plan expiry enforcement - see planExpiry.js */
 exports.enforcePlanExpiry = require("./planExpiry").enforcePlanExpiry;
+
+/* 💸 Buyer refunds on cancel/reject - see refunds.js */
+exports.refundCancelledOrRejectedOrder = require("./refunds").refundCancelledOrRejectedOrder;
 
 
 

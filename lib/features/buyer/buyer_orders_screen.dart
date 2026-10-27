@@ -189,6 +189,36 @@ class BuyerOrdersScreen extends StatelessWidget {
                   style: const TextStyle(fontSize: 13, color: Colors.red),
                 ),
               ),
+
+            if (order.refundStatus != null)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: (order.refundStatus == 'failed'
+                          ? Colors.red
+                          : order.refundStatus == 'completed'
+                              ? Colors.green
+                              : mqOrange)
+                      .withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  order.refundStatus == 'completed'
+                      ? '₹${order.totalAmount.toStringAsFixed(0)} refunded'
+                      : order.refundStatus == 'failed'
+                          ? 'Refund failed - please contact support for your ₹${order.totalAmount.toStringAsFixed(0)} refund.'
+                          : 'Refund of ₹${order.totalAmount.toStringAsFixed(0)} initiated - it\'ll reach your payment method shortly.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: order.refundStatus == 'failed'
+                        ? Colors.red
+                        : order.refundStatus == 'completed'
+                            ? Colors.green
+                            : mqOrange,
+                  ),
+                ),
+              ),
           ],
         ),
         children: [
