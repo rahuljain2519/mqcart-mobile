@@ -10,6 +10,8 @@ import '../../repositories/user_repository.dart';
 import '../../services/cart_service.dart';
 import '../../core/widgets/mq_network_image.dart';
 import '../../core/widgets/clear_cart_dialog.dart';
+import '../../core/widgets/verified_badge.dart';
+import '../../core/widgets/star_rating.dart';
 import '../../config/categories.dart';
 import 'cart_screen.dart';
 import 'buyer_product_detail_screen.dart';
@@ -170,11 +172,24 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.shop.shopName,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.shop.shopName,
+                                style: Theme.of(context).textTheme.titleMedium,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (widget.shop.isVerified) ...[
+                              const SizedBox(width: 6),
+                              const VerifiedBadge(),
+                            ],
+                          ],
+                        ),
+                        RatingSummary(
+                          ratingSum: widget.shop.ratingSum,
+                          reviewCount: widget.shop.reviewCount,
                         ),
                         if (widget.shop.description.isNotEmpty)
                           Padding(
@@ -394,6 +409,14 @@ class _BuyerProductsScreenState extends State<BuyerProductsScreen> {
                                       color: Colors.grey.shade600),
                                 ),
                               ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: RatingSummary(
+                                ratingSum: product.ratingSum,
+                                reviewCount: product.reviewCount,
+                                size: 12,
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             Row(
                               mainAxisAlignment:

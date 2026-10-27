@@ -70,6 +70,14 @@ class ProductModel {
   final String? optionLabel;
   final List<ProductOption> options;
 
+  // Running totals maintained by the onReviewCreated Cloud Function trigger
+  // (functions/reviews.js) - divide to get the average. Null until the
+  // first review arrives; kept nullable (unlike the required fields above)
+  // so a seller editing other fields via copyWith/toJson doesn't
+  // accidentally reset them - see toJson's conditional include below.
+  final int? ratingSum;
+  final int? reviewCount;
+
   ProductModel({
     required this.id,
     required this.shopId,
@@ -100,6 +108,9 @@ class ProductModel {
     // 🆕 VARIANT OPTIONS
     this.optionLabel,
     this.options = const [],
+
+    this.ratingSum,
+    this.reviewCount,
   });
 
   bool get hasOptions => options.isNotEmpty;
@@ -121,6 +132,9 @@ class ProductModel {
   /// Cheapest option price, or the plain price.
   double get displayPrice =>
       hasOptions ? options.map((o) => o.price).reduce((a, b) => a < b ? a : b) : price;
+
+  double? get avgRating =>
+      (reviewCount != null && reviewCount! > 0) ? ratingSum! / reviewCount! : null;
 
   double priceForOption(String? name) {
     if (!hasOptions || name == null) return price;
@@ -189,6 +203,9 @@ class ProductModel {
                   ProductOption.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList() ??
           const [],
+
+      ratingSum: json['ratingSum'],
+      reviewCount: json['reviewCount'],
     );
   }
 
@@ -230,6 +247,12 @@ class ProductModel {
       // 🆕 VARIANT OPTIONS
       'optionLabel': hasOptions ? (optionLabel ?? 'Option') : '',
       'options': options.map((o) => o.toJson()).toList(),
+
+      // Only included when already known (see field doc above) - omitted
+      // entirely on a brand-new/edited ProductModel so a seller's product
+      // edit never resets the server-maintained aggregate to null.
+      if (ratingSum != null) 'ratingSum': ratingSum,
+      if (reviewCount != null) 'reviewCount': reviewCount,
     };
   }
 
@@ -262,6 +285,9 @@ class ProductModel {
     // 🆕 VARIANT OPTIONS
     String? optionLabel,
     List<ProductOption>? options,
+
+    int? ratingSum,
+    int? reviewCount,
   }) {
     return ProductModel(
       id: id,
@@ -295,6 +321,9 @@ class ProductModel {
 
       optionLabel: optionLabel ?? this.optionLabel,
       options: options ?? this.options,
+
+      ratingSum: ratingSum ?? this.ratingSum,
+      reviewCount: reviewCount ?? this.reviewCount,
     );
   }
 }

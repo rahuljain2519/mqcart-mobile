@@ -976,5 +976,8 @@ exports.logShopToggled = activityLog.logShopToggled;
 exports.logSettlementCreated = activityLog.logSettlementCreated;
 exports.logProfileAddressChanged = activityLog.logProfileAddressChanged;
 
+/* ⭐ Review aggregates - see reviews.js */
+exports.onReviewCreated = require("./reviews").onReviewCreated;
+
 
 

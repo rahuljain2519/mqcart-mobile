@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 
 import '../../models/product_model.dart';
+import '../../models/shop_model.dart';
 import '../../services/cart_service.dart';
+import '../../repositories/shop_repository.dart';
 import '../../core/widgets/mq_network_image.dart';
 import '../../core/widgets/clear_cart_dialog.dart';
+import '../../core/widgets/verified_badge.dart';
+import '../../core/widgets/product_reviews.dart';
 import '../buyer/cart_screen.dart';
 
 class BuyerProductDetailScreen extends StatefulWidget {
@@ -23,11 +27,21 @@ class BuyerProductDetailScreen extends StatefulWidget {
 class _BuyerProductDetailScreenState
     extends State<BuyerProductDetailScreen> {
   final PageController _pageController = PageController();
+  final ShopRepository _shopRepository = ShopRepository();
   int _currentIndex = 0;
   String? _selectedOption; // 🆕 variant option
+  ShopModel? _shop;
 
   static const Color mqOrange = Color(0xFFFF6A00);
   static const Color mqLightOrange = Color(0xFFFFF3E8);
+
+  @override
+  void initState() {
+    super.initState();
+    _shopRepository.getShopById(widget.product.shopId).then((shop) {
+      if (mounted) setState(() => _shop = shop);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +128,26 @@ class _BuyerProductDetailScreenState
                 ),
 
                 const SizedBox(height: 20),
+
+                if (_shop != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _shop!.shopName,
+                            style: const TextStyle(fontSize: 13, color: Colors.grey),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (_shop!.isVerified) ...[
+                          const SizedBox(width: 6),
+                          const VerifiedBadge(),
+                        ],
+                      ],
+                    ),
+                  ),
 
                 /// 🏷️ PRODUCT NAME
                 Text(
@@ -363,6 +397,8 @@ class _BuyerProductDetailScreenState
                     );
                   },
                 ),
+
+                ProductReviews(product: widget.product),
               ],
             ),
           ),

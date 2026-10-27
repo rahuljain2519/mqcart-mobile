@@ -214,7 +214,10 @@ class _SellerOnboardingScreenState extends State<SellerOnboardingScreen> {
         address: '',
         phone: '',
         isActive: false,
-        isVerified: false,
+        // createShop (step 1 above) already set this true - repeating it
+        // here since this is a full-field update() that would otherwise
+        // silently flip it back to false right after creation.
+        isVerified: true,
 
         // 🆕 DELIVERY CONFIG
         deliveryUnit: _deliveryUnit,

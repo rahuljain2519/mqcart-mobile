@@ -6,6 +6,7 @@ import '../../../repositories/order_repository.dart';
 import '../../../repositories/product_repository.dart';
 import '../../../repositories/user_repository.dart';
 import '../../../models/order_model.dart';
+import '../../../core/widgets/rate_product_button.dart';
 import 'buyer_product_detail_screen.dart';
 
 class BuyerOrdersScreen extends StatelessWidget {
@@ -307,10 +308,17 @@ class BuyerOrdersScreen extends StatelessWidget {
                   subtitle: Text(
                     '₹${item['price']} × ${item['quantity']}',
                   ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: Colors.grey,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (order.status == 'delivered')
+                        RateProductButton(order: order, item: item),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                    ],
                   ),
                   onTap: () async {
                     final productId = item['productId'];
@@ -341,6 +349,26 @@ class BuyerOrdersScreen extends StatelessWidget {
   // ORDER TIMELINE
   // ---------------------------
   Widget _orderTimeline(String status) {
+    // Terminal, non-progressing states previously fell through to
+    // activeIndex 0 here, rendering as an all-grey "just placed" tracker -
+    // misleading rather than just incomplete. Give them their own single
+    // marker instead.
+    if (status == 'rejected' || status == 'cancelled') {
+      final color = status == 'rejected' ? Colors.red : Colors.grey;
+      final label = status == 'rejected' ? 'Order rejected' : 'Order cancelled';
+      return Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(fontSize: 11, color: color)),
+        ],
+      );
+    }
+
     int activeIndex = 0;
 
     if (status == 'accepted') activeIndex = 1;
@@ -349,31 +377,52 @@ class BuyerOrdersScreen extends StatelessWidget {
     Color activeColor = mqOrange;
     if (status == 'delivered') activeColor = Colors.green;
 
-    return Row(
-      children: List.generate(5, (index) {
-        if (index.isOdd) {
-          return Expanded(
-            child: Container(
-              height: 2,
-              color: index ~/ 2 < activeIndex
-                  ? activeColor
-                  : Colors.grey.shade300,
-            ),
-          );
-        } else {
-          final step = index ~/ 2;
-          return Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: step <= activeIndex
-                  ? activeColor
-                  : Colors.grey.shade300,
-            ),
-          );
-        }
-      }),
+    const labels = ['Placed', 'Accepted', 'Delivered'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: List.generate(5, (index) {
+            if (index.isOdd) {
+              return Expanded(
+                child: Container(
+                  height: 2,
+                  color: index ~/ 2 < activeIndex
+                      ? activeColor
+                      : Colors.grey.shade300,
+                ),
+              );
+            } else {
+              final step = index ~/ 2;
+              return Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: step <= activeIndex
+                      ? activeColor
+                      : Colors.grey.shade300,
+                ),
+              );
+            }
+          }),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(3, (i) {
+            return Text(
+              labels[i],
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: i <= activeIndex ? FontWeight.w600 : FontWeight.normal,
+                color: i <= activeIndex ? Colors.black87 : Colors.black38,
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 

@@ -40,7 +40,10 @@ class ShopRepository {
       phone: '',
 
       isActive: true,
-      isVerified: false,
+      // Reaching shop creation at all requires the seller's application to
+      // already be admin-approved (see UserRepository.approveSeller) - so
+      // "verified" is simply true here, not a separate review step.
+      isVerified: true,
     );
 
     final String shopId = await _remoteDS.createShop(shop);

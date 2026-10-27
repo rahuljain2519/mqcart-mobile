@@ -206,15 +206,26 @@ class _BuyerShopsScreenState extends State<BuyerShopsScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
-                                    shop.shopName,
-                                    maxLines: 2,
-                                    overflow:
-                                        TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          shop.shopName,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      if (shop.isVerified) ...[
+                                        const SizedBox(width: 3),
+                                        Icon(Icons.verified,
+                                            size: 14, color: Colors.green.shade700),
+                                      ],
+                                    ],
                                   ),
                                   if (shop.description.isNotEmpty) ...[
                                     const SizedBox(height: 6),

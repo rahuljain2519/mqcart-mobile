@@ -34,6 +34,12 @@ class ShopModel {
   final bool isActive;
   final bool isVerified;
 
+  // Running totals maintained by the onReviewCreated Cloud Function
+  // trigger (functions/reviews.js) - divide to get the average. Absent/0
+  // on shops with no reviews yet.
+  final int ratingSum;
+  final int reviewCount;
+
   // 🆕 DELIVERY CONFIG (AUTHORITATIVE)
   final String deliveryUnit; // minutes | hours | days
   final int deliveryMinValue;
@@ -67,6 +73,8 @@ class ShopModel {
 
     this.isActive = false,
     this.isVerified = false,
+    this.ratingSum = 0,
+    this.reviewCount = 0,
 
     // 🆕 SAFE DEFAULTS (BACKWARD COMPATIBLE)
     this.deliveryUnit = 'days',
@@ -103,6 +111,8 @@ class ShopModel {
 
       isActive: json['isActive'] ?? false,
       isVerified: json['isVerified'] ?? false,
+      ratingSum: json['ratingSum'] ?? 0,
+      reviewCount: json['reviewCount'] ?? 0,
 
       // 🆕 DELIVERY (BACKWARD SAFE)
       deliveryUnit: json['deliveryUnit'] ?? 'days',
@@ -138,6 +148,12 @@ class ShopModel {
 
       'isActive': isActive,
       'isVerified': isVerified,
+      // Server-maintained by onReviewCreated - included here only so a
+      // fresh ShopModel round-trips its own current value on an unrelated
+      // field edit (updateShop writes the whole toJson()), not so clients
+      // ever set these themselves.
+      'ratingSum': ratingSum,
+      'reviewCount': reviewCount,
 
       // 🆕 DELIVERY
       'deliveryUnit': deliveryUnit,
@@ -168,6 +184,8 @@ class ShopModel {
 
     bool? isActive,
     bool? isVerified,
+    int? ratingSum,
+    int? reviewCount,
 
     String? deliveryUnit,
     int? deliveryMinValue,
@@ -200,6 +218,8 @@ class ShopModel {
 
       isActive: isActive ?? this.isActive,
       isVerified: isVerified ?? this.isVerified,
+      ratingSum: ratingSum ?? this.ratingSum,
+      reviewCount: reviewCount ?? this.reviewCount,
 
       deliveryUnit: deliveryUnit ?? this.deliveryUnit,
       deliveryMinValue: deliveryMinValue ?? this.deliveryMinValue,
