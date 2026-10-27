@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/payment_service.dart';
 import '../../repositories/shop_repository.dart';
 import '../../models/shop_model.dart';
+import '../../config/plan_config.dart';
 
 class ActivateShopScreen extends StatefulWidget {
   final ShopModel shop;
@@ -101,6 +102,53 @@ class _ActivateShopScreenState extends State<ActivateShopScreen> {
         ],
       ),
     );
+  }
+
+  void _showFreePlanWindowClosedPopup() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Free Plan Not Available'),
+        content: Text(
+          'The free plan ended on ${formatPlanDate(freePlanCutoff)}. '
+          'Please choose a paid plan to continue.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown right before a seller actually activates the free plan, so they
+  /// know up front it isn't permanent.
+  Future<bool> _confirmFreePlanActivation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Activate free plan?'),
+        content: Text(
+          'Your shop will go live on the free plan until '
+          '${formatPlanDate(freePlanCutoff)}. After that date you\'ll need '
+          'to choose a paid plan to stay visible to buyers - your products '
+          'won\'t be deleted, just hidden until you do.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Activate'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 
 
@@ -234,6 +282,13 @@ class _ActivateShopScreenState extends State<ActivateShopScreen> {
           _showFreePlanBlockedPopup();
           return;
         }
+        if (planKey == 'free' && isFreePlanWindowClosed) {
+          setState(() {
+            _selectedPlan = null;
+          });
+          _showFreePlanWindowClosedPopup();
+          return;
+        }
         setState(() {
           _selectedPlan = planKey;
         });
@@ -285,6 +340,22 @@ class _ActivateShopScreenState extends State<ActivateShopScreen> {
               'Upload up to ${plan['productLimit']} products',
               style: const TextStyle(color: Colors.grey),
             ),
+            if (planKey == 'free' && !isFreePlanWindowClosed && !_freePlanUsed)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Free until ${formatPlanDate(freePlanCutoff)}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+              ),
+            if (planKey == 'free' && isFreePlanWindowClosed)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Free plan ended ${formatPlanDate(freePlanCutoff)}',
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ),
           ],
         ),
       ),
@@ -301,6 +372,11 @@ class _ActivateShopScreenState extends State<ActivateShopScreen> {
     final sellerId = FirebaseAuth.instance.currentUser!.uid;
     final user = FirebaseAuth.instance.currentUser;
 
+    if (monthlyFee == 0) {
+      final ok = await _confirmFreePlanActivation();
+      if (!ok) return;
+    }
+
     setState(() {
       _processing = true;
     });
@@ -310,16 +386,10 @@ class _ActivateShopScreenState extends State<ActivateShopScreen> {
       if (monthlyFee == 0) {
         final firestore = FirebaseFirestore.instance;
 
-        // 🔹 Read free plan validity from config
-        final freePlanData = _plans!['free'];
-        final int? validityDays = freePlanData['validityDays'];
-
-        // 🔹 Calculate expiry (null = lifetime free)
-        final Timestamp? expiresAt = validityDays == null
-            ? null
-            : Timestamp.fromDate(
-                DateTime.now().add(Duration(days: validityDays)),
-              );
+        // 🔹 Free plan expiry is a fixed calendar date shared by every
+        // seller (see lib/config/plan_config.dart), not N days from
+        // activation - replaces the old validityDays-based calculation.
+        final Timestamp expiresAt = Timestamp.fromDate(freePlanCutoff);
 
         // 1️⃣ Create / update seller subscription
         await firestore

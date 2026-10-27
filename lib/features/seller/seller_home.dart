@@ -214,6 +214,7 @@ class _SellerHomeState extends State<SellerHome> {
   // ACTIVATION BANNER
   // ---------------------------
   Widget _activationBanner(BuildContext context, ShopModel shop) {
+    final expired = shop.planStatus == 'expired';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -224,16 +225,19 @@ class _SellerHomeState extends State<SellerHome> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Your shop is inactive',
-            style: TextStyle(
+          Text(
+            expired ? 'Your plan expired' : 'Your shop is inactive',
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.red,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Activate your shop to start receiving orders.',
+          Text(
+            expired
+                ? 'Your products are hidden from buyers, not deleted. '
+                    'Choose a plan to go live again.'
+                : 'Activate your shop to start receiving orders.',
           ),
           const SizedBox(height: 10),
           ElevatedButton(

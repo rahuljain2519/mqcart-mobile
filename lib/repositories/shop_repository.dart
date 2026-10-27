@@ -125,6 +125,9 @@ class ShopRepository {
     batch.update(shopRef, {
       'isActive': true,
       'activationStatus': 'active',
+      // Mirrors web's activateShopPlan - was missing here, leaving
+      // ShopModel.planStatus stale after a free-plan activation.
+      'planStatus': 'active',
       'plan': plan,
       'productLimit': productLimit,
     });

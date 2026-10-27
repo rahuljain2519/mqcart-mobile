@@ -402,6 +402,26 @@ exports.razorpayWebhook = onRequest(
 
       console.log("SHOP ACTIVATED VIA WEBHOOK", { shopId, plan });
 
+      // Renewal after a plan-expiry hide (see planExpiry.js): restore only
+      // the products THIS job hid, not every active-flag flip - a product
+      // the seller had manually marked inactive before expiring stays off.
+      const hiddenSnap = await db
+        .collection("products")
+        .where("shopId", "==", shopId)
+        .where("hiddenByPlanExpiry", "==", true)
+        .get();
+      if (!hiddenSnap.empty) {
+        const batch = db.batch();
+        hiddenSnap.docs.forEach((d) => {
+          batch.update(d.ref, { isActive: true, hiddenByPlanExpiry: false });
+        });
+        await batch.commit();
+        console.log("PRODUCTS RESTORED AFTER RENEWAL", {
+          shopId,
+          count: hiddenSnap.size,
+        });
+      }
+
       await require("./activityLog").logActivity({
         actorId: sellerId,
         action: "seller.activation_payment_completed",
@@ -978,6 +998,9 @@ exports.logProfileAddressChanged = activityLog.logProfileAddressChanged;
 
 /* ⭐ Review aggregates - see reviews.js */
 exports.onReviewCreated = require("./reviews").onReviewCreated;
+
+/* ⏳ Plan expiry enforcement - see planExpiry.js */
+exports.enforcePlanExpiry = require("./planExpiry").enforcePlanExpiry;
 
 
 

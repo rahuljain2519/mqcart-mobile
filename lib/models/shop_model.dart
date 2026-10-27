@@ -28,6 +28,11 @@ class ShopModel {
 
   // PLAN & LIMIT
   final String plan;
+  // "pending" | "active" | "expired" - written by the activation webhook
+  // and by enforcePlanExpiry (functions/planExpiry.js) when a free or paid
+  // plan's validity runs out. Was already written to Firestore by both
+  // flows but had no typed field here, unlike web's Shop.planStatus.
+  final String? planStatus;
   final int productLimit;
   final int productCount;
   final double transactionFeePercent;
@@ -73,6 +78,7 @@ class ShopModel {
 
     this.isActive = false,
     this.isVerified = false,
+    this.planStatus,
     this.ratingSum = 0,
     this.reviewCount = 0,
 
@@ -111,6 +117,7 @@ class ShopModel {
 
       isActive: json['isActive'] ?? false,
       isVerified: json['isVerified'] ?? false,
+      planStatus: json['planStatus'],
       ratingSum: json['ratingSum'] ?? 0,
       reviewCount: json['reviewCount'] ?? 0,
 
@@ -148,6 +155,7 @@ class ShopModel {
 
       'isActive': isActive,
       'isVerified': isVerified,
+      if (planStatus != null) 'planStatus': planStatus,
       // Server-maintained by onReviewCreated - included here only so a
       // fresh ShopModel round-trips its own current value on an unrelated
       // field edit (updateShop writes the whole toJson()), not so clients
@@ -184,6 +192,7 @@ class ShopModel {
 
     bool? isActive,
     bool? isVerified,
+    String? planStatus,
     int? ratingSum,
     int? reviewCount,
 
@@ -218,6 +227,7 @@ class ShopModel {
 
       isActive: isActive ?? this.isActive,
       isVerified: isVerified ?? this.isVerified,
+      planStatus: planStatus ?? this.planStatus,
       ratingSum: ratingSum ?? this.ratingSum,
       reviewCount: reviewCount ?? this.reviewCount,
 
