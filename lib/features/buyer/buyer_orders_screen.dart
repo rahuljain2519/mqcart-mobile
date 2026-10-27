@@ -6,7 +6,9 @@ import '../../../repositories/order_repository.dart';
 import '../../../repositories/product_repository.dart';
 import '../../../repositories/user_repository.dart';
 import '../../../models/order_model.dart';
+import '../../../services/cart_service.dart';
 import '../../../core/widgets/rate_product_button.dart';
+import '../../../core/widgets/clear_cart_dialog.dart';
 import 'buyer_product_detail_screen.dart';
 
 class BuyerOrdersScreen extends StatelessWidget {
@@ -340,7 +342,81 @@ class BuyerOrdersScreen extends StatelessWidget {
               },
             );
           }).toList(),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              children: [
+                OutlinedButton(
+                  onPressed: () => _reorder(context, order),
+                  child: const Text('Reorder'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: () => launchUrl(
+                    Uri.parse('https://mqcart.com/orders/${order.id}/invoice'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  child: const Text('Invoice'),
+                ),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  // ---------------------------
+  // REORDER
+  // ---------------------------
+  Future<void> _reorder(BuildContext context, OrderModel order) async {
+    int added = 0;
+    int unavailable = 0;
+
+    for (final item in order.items) {
+      final productId = item['productId'] as String?;
+      if (productId == null) {
+        unavailable++;
+        continue;
+      }
+
+      final product = await ProductRepository().getProductById(productId);
+      final optionName = item['optionName'] as String?;
+      final stock = product?.stockForOption(optionName) ?? 0;
+
+      if (product == null || !product.isActive || stock <= 0) {
+        unavailable++;
+        continue;
+      }
+
+      var result =
+          CartService.instance.addProduct(product, optionName: optionName);
+      if (result == AddProductResult.multiSellerNotAllowed) {
+        if (!context.mounted) return;
+        final cleared = await showClearCartDialog(context);
+        if (!cleared) return;
+        CartService.instance.clearCart();
+        result =
+            CartService.instance.addProduct(product, optionName: optionName);
+      }
+
+      final requestedQty = (item['quantity'] as num?)?.toInt() ?? 1;
+      final addQty = requestedQty < stock ? requestedQty : stock;
+      for (var i = 1; i < addQty; i++) {
+        CartService.instance.addProduct(product, optionName: optionName);
+      }
+      added++;
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          unavailable > 0
+              ? 'Added $added of ${order.items.length} items — $unavailable no longer available.'
+              : 'Added $added item${added == 1 ? "" : "s"} to cart.',
+        ),
       ),
     );
   }

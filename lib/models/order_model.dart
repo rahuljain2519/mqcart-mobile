@@ -17,9 +17,20 @@ class OrderModel {
 
   final Timestamp? createdAt;
   final Timestamp? updatedAt;
+  // Per-status timestamps - set once, the first time each transition
+  // happens (see OrderRemoteDS.updateOrderStatus/rejectOrder). Only the
+  // one matching the order's current status is ever populated.
+  final Timestamp? acceptedAt;
+  final Timestamp? deliveredAt;
+  final Timestamp? rejectedAt;
+  final Timestamp? cancelledAt;
   // 🆕 PAYMENT FIELDS (ADD ONLY)
   final String paymentMethod;
   final String paymentStatus;
+  /// Set for "razorpay" orders once the webhook confirms payment - absent
+  /// for "cod". Denormalized onto the order so support/refund lookups
+  /// don't need buyer_order_payments too.
+  final String? razorpayPaymentId;
 
   // Manual settlement (Option A - see AdminSettlementsScreen). Only
   // meaningful for paymentMethod 'razorpay' orders; COD orders are never
@@ -41,9 +52,14 @@ class OrderModel {
     this.shopPhone = '',
     this.createdAt,
     this.updatedAt,
+    this.acceptedAt,
+    this.deliveredAt,
+    this.rejectedAt,
+    this.cancelledAt,
      // 🆕 SAFE DEFAULTS (CRITICAL)
     this.paymentMethod = 'cod',
     this.paymentStatus = 'pending',
+    this.razorpayPaymentId,
     this.settled = false,
     this.settlementId,
     this.rejectionReason,
@@ -64,9 +80,14 @@ class OrderModel {
       status: json['status'] ?? 'placed',
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      acceptedAt: json['acceptedAt'],
+      deliveredAt: json['deliveredAt'],
+      rejectedAt: json['rejectedAt'],
+      cancelledAt: json['cancelledAt'],
       // 🆕 FALLBACK FOR OLD ORDERS
       paymentMethod: json['paymentMethod'] ?? 'cod',
       paymentStatus: json['paymentStatus'] ?? 'pending',
+      razorpayPaymentId: json['razorpayPaymentId'],
       settled: json['settled'] ?? false,
       settlementId: json['settlementId'],
       rejectionReason: json['rejectionReason'],

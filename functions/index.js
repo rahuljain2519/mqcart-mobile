@@ -131,6 +131,9 @@ async function handleBuyerOrderPaymentCaptured(razorpayOrderId, payment, res) {
       status: "placed",
       paymentMethod: "razorpay",
       paymentStatus: "paid",
+      // Denormalized here (not just on buyer_order_payments) so a support/
+      // refund lookup never needs to cross-reference two collections.
+      razorpayPaymentId: payment.id,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 

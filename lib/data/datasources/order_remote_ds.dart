@@ -128,13 +128,24 @@ class OrderRemoteDS {
   /// ---------------------------------
   /// UPDATE ORDER STATUS
   /// ---------------------------------
+  // Field written once, the first time an order reaches that status - see
+  // OrderModel.acceptedAt/deliveredAt/cancelledAt. 'rejected' isn't here
+  // because it always goes through rejectOrder below, never this method.
+  static const Map<String, String> _statusTimestampField = {
+    'accepted': 'acceptedAt',
+    'delivered': 'deliveredAt',
+    'cancelled': 'cancelledAt',
+  };
+
   Future<void> updateOrderStatus({
     required String orderId,
     required String status,
   }) async {
+    final field = _statusTimestampField[status];
     await _firestore.orders().doc(orderId).update({
       'status': status,
       'updatedAt': FieldValue.serverTimestamp(),
+      if (field != null) field: FieldValue.serverTimestamp(),
     });
   }
 
@@ -147,6 +158,7 @@ class OrderRemoteDS {
       'status': 'rejected',
       'rejectionReason': reason,
       'updatedAt': FieldValue.serverTimestamp(),
+      'rejectedAt': FieldValue.serverTimestamp(),
     });
   }
 
