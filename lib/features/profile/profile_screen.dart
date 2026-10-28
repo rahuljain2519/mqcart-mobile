@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../repositories/user_repository.dart';
 import '../../repositories/society_repository.dart';
@@ -282,12 +284,88 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+
+                TextButton(
+                  onPressed: () => _confirmDeleteAccount(context),
+                  child: const Text(
+                    'Delete my account',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => launchUrl(Uri.parse('https://mqcart.com/privacy')),
+                      child: const Text('Privacy Policy', style: TextStyle(fontSize: 12)),
+                    ),
+                    TextButton(
+                      onPressed: () => launchUrl(Uri.parse('https://mqcart.com/terms')),
+                      child: const Text('Terms', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
               ],
             ),
           );
         },
       ),
     );
+  }
+}
+
+/// Self-service, irreversible: deletes the signed-in user's own account
+/// (Firestore doc + Firebase Auth identity) - Play Store requires this be
+/// reachable in-app, not just via a web form. Mirrors
+/// _confirmDeleteSeller's pattern in admin_seller_detail_screen.dart.
+Future<void> _confirmDeleteAccount(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Delete your account?'),
+      content: const Text(
+        'This permanently deletes your profile, and if you have a shop, '
+        'your shop and all its products and KYC documents. Your past '
+        'orders are kept as transaction records. This cannot be undone.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text(
+            'Delete my account',
+            style: TextStyle(color: Colors.red),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator()),
+  );
+
+  try {
+    await FirebaseFunctions.instance.httpsCallable('deleteMyAccount').call({});
+    await FirebaseAuth.instance.signOut();
+    // No explicit navigation - the app's auth-state listener (same as the
+    // Logout button above) routes to LoginScreen once signed out.
+  } catch (e) {
+    if (context.mounted) {
+      Navigator.pop(context); // close the loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete your account: $e')),
+      );
+    }
   }
 }
 

@@ -717,6 +717,94 @@ exports.adminDeleteSeller = onCall(async (request) => {
 });
 
 /* =========================================================
+   🗑️ SELF-SERVICE ACCOUNT DELETION (Play Store requirement)
+   Any signed-in user deleting their OWN account - never takes a uid
+   parameter, only ever acts on request.auth.uid, unlike adminDeleteSeller
+   above (which resets a seller back to a plain buyer but keeps their
+   account). This one actually removes the account: the Firestore user
+   doc AND the Firebase Auth identity itself, so they can't just log back
+   in afterward.
+
+   Cascades the same seller-specific cleanup as adminDeleteSeller if they
+   had a shop, then goes further: anonymizes (not deletes - would corrupt
+   rating aggregates) their review authorship, and removes the Auth user.
+
+   Deliberately NOT touched, same reasoning as adminDeleteSeller: `orders`
+   (financial/transactional records involving other people) and
+   `buyer_order_payments`. This is disclosed in the privacy policy as
+   data retained for legitimate business/legal purposes after deletion.
+   ========================================================= */
+exports.deleteMyAccount = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new HttpsError("not-found", "User not found.");
+  }
+  const societyId = userSnap.data().societyId || null;
+
+  const bucket = admin.storage().bucket();
+
+  // 1️⃣ Shop(s) + their products (Firestore + Storage) - same cascade as
+  // adminDeleteSeller, for a user who happens to be a seller too.
+  const shopsSnap = await db.collection("shops").where("sellerId", "==", uid).get();
+  for (const shopDoc of shopsSnap.docs) {
+    const shopId = shopDoc.id;
+    const productsSnap = await db.collection("products").where("shopId", "==", shopId).get();
+    await deleteFirestoreDocsInChunks(productsSnap.docs.map((d) => d.ref));
+    await bucket.deleteFiles({ prefix: `products/${shopId}/` }).catch(() => {});
+    await bucket.deleteFiles({ prefix: `shops/${shopId}/` }).catch(() => {});
+    await shopDoc.ref.delete();
+  }
+
+  // 2️⃣ seller_applications / seller_subscriptions
+  await db.collection("seller_applications").doc(uid).delete().catch(() => {});
+  await db.collection("seller_subscriptions").doc(uid).delete().catch(() => {});
+
+  // 3️⃣ seller_activation_payments (client can't delete these - rules block it)
+  const paymentsSnap = await db
+    .collection("seller_activation_payments")
+    .where("sellerId", "==", uid)
+    .get();
+  await deleteFirestoreDocsInChunks(paymentsSnap.docs.map((d) => d.ref));
+
+  // 4️⃣ societies/{societyId}/sellers/{uid} KYC doc + its Storage files
+  if (societyId) {
+    await db
+      .collection("societies")
+      .doc(societyId)
+      .collection("sellers")
+      .doc(uid)
+      .delete()
+      .catch(() => {});
+    await bucket.deleteFiles({ prefix: `seller_documents/${societyId}/${uid}/` }).catch(() => {});
+  }
+
+  // 5️⃣ Anonymize (not delete) review authorship - deleting the review
+  // itself would desync the product/shop ratingSum/reviewCount aggregates.
+  const reviewsSnap = await db.collection("reviews").where("buyerId", "==", uid).get();
+  if (!reviewsSnap.empty) {
+    const batch = db.batch();
+    reviewsSnap.docs.forEach((d) => batch.update(d.ref, { buyerName: "Deleted user" }));
+    await batch.commit();
+  }
+
+  // 6️⃣ The account itself - Firestore doc, then the Auth identity.
+  await userRef.delete();
+  await admin.auth().deleteUser(uid).catch((err) => {
+    console.error("AUTH USER DELETE FAILED", uid, err.message);
+  });
+
+  console.log("ACCOUNT SELF-DELETED", { uid });
+
+  return { success: true };
+});
+
+/* =========================================================
    💸 SELLER SETTLEMENT (RAZORPAY ROUTE)
    Lets a seller's share of an online order move to their own bank
    account automatically at payment-capture time, instead of sitting
