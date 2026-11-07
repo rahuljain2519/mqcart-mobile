@@ -72,7 +72,7 @@ class ShopModel {
     this.routeStatus,
 
     this.plan = 'free',
-    this.productLimit = 10,
+    this.productLimit = 200,
     this.productCount = 0,
     this.transactionFeePercent = 0.0,
 
@@ -110,7 +110,7 @@ class ShopModel {
       routeStatus: json['routeStatus'],
 
       plan: json['plan'] ?? 'free',
-      productLimit: json['productLimit'] ?? 10,
+      productLimit: json['productLimit'] ?? 200,
       productCount: json['productCount'] ?? 0,
       transactionFeePercent:
           (json['transactionFeePercent'] ?? 0).toDouble(),

@@ -47,7 +47,7 @@ class ShopRemoteDS {
       'isActive': false,                 // activation controlled by payment
       'activationStatus': 'pending',     // pending | active
       'plan': data['plan'] ?? 'free',    // default plan
-      'productLimit': data['productLimit'] ?? 10,
+      'productLimit': data['productLimit'] ?? 200,
       'productCount': data['productCount'] ?? 0,
       'transactionFeePercent': data['transactionFeePercent'] ?? 0,
     });

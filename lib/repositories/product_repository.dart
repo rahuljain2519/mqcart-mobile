@@ -200,7 +200,7 @@ class ProductRepository {
 
     final data = shopDoc.data()!;
     final int productCount = data['productCount'] ?? 0;
-    final int productLimit = data['productLimit'] ?? 20;
+    final int productLimit = data['productLimit'] ?? 200;
 
     if (productCount >= productLimit) {
       throw Exception(
